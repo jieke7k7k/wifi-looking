@@ -1,0 +1,15 @@
+{
+  "name": "wifi-looking",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Windows Wi-Fi change monitor with a configurable rule engine.",
+  "scripts": {
+    "start": "node src/app.js --config config/config.json",
+    "doctor": "node src/doctor.js --config config/config.json",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
