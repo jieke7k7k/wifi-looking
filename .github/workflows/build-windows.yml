@@ -1,0 +1,64 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+    paths:
+      - "python/**"
+      - ".github/workflows/build-windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r python/requirements.txt
+          pip install -r python/requirements-dev.txt
+
+      - name: Generate icon
+        # assets/app.ico is a binary and is not kept in the repo snapshot;
+        # it is regenerated from generate_icon.py (Pillow, from dev reqs).
+        run: python python/generate_icon.py
+
+      - name: Run tests
+        working-directory: python
+        run: python -m unittest discover -s tests -v
+
+      - name: Ensure Inno Setup
+        run: |
+          $iscc = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Build exe and installer
+        run: python python/build.py
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFi-Looking-exe
+          path: python/dist/WiFi-Looking.exe
+          if-no-files-found: error
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFi-Looking-Setup
+          path: python/dist/WiFi-Looking-Setup.exe
+          if-no-files-found: warn
