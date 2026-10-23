@@ -1,0 +1,27 @@
+{
+  "monitor": {
+    "intervalSeconds": 2
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/wifi-looking.log"
+  },
+  "rules": [
+    {
+      "id": "demo-log-only",
+      "enabled": true,
+      "description": "Safe default rule: log any Wi-Fi change without side effects.",
+      "when": {
+        "event": "any",
+        "previousSsid": "*"
+      },
+      "actions": [
+        {
+          "type": "log",
+          "message": "Wi-Fi state changed"
+        }
+      ],
+      "cooldownSeconds": 1
+    }
+  ]
+}
