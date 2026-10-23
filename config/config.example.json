@@ -1,0 +1,46 @@
+{
+  "$schema": "./config.schema.json",
+  "monitor": {
+    "intervalSeconds": 2
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/wifi-looking.log"
+  },
+  "rules": [
+    {
+      "id": "xms-disconnect-close-clash",
+      "enabled": true,
+      "description": "When the laptop leaves Xms, close all Clash connections.",
+      "when": {
+        "event": "disconnected",
+        "previousSsid": ["Xms", "Xms 5G"]
+      },
+      "actions": [
+        {
+          "type": "clash.closeConnections",
+          "baseUrl": "http://127.0.0.1:9090",
+          "secret": ""
+        }
+      ],
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "xms-to-other-wifi-close-clash",
+      "enabled": true,
+      "description": "When the laptop switches from Xms to another Wi-Fi, close all Clash connections.",
+      "when": {
+        "event": "changed",
+        "previousSsid": ["Xms", "Xms 5G"]
+      },
+      "actions": [
+        {
+          "type": "clash.closeConnections",
+          "baseUrl": "http://127.0.0.1:9090",
+          "secret": ""
+        }
+      ],
+      "cooldownSeconds": 10
+    }
+  ]
+}
