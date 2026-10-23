@@ -1,1 +1,206 @@
-IiIiQ2xhc2hNaSBkaXNjb3ZlcnkgYW5kIGNsaWVudCB0ZXN0cyB3aXRoIGEgc3R1YmJlZCByZXF1ZXN0cyBsYXllci4KCkNvdmVycyB0aGUgcmV2aWV3IGZpbmRpbmdzOiBKU09OIG51bGwgc2V0dGluZ3MgdHVybmluZyBpbnRvIHRoZSBzdHJpbmcKIk5vbmUiLCBSRUdfQklOQVJZIHJlZ2lzdHJ5IHZhbHVlcywgdGhlIHByZS1jb3VudCBHRVQgZ2F0aW5nIHRoZQpERUxFVEUgaW4gY2xvc2VfY29ubmVjdGlvbnMsIDQwMSByZWRpc2NvdmVyeSwgYW5kIHRpbWVvdXRzLgoiIiIKCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBqc29uCmltcG9ydCBzeXMKaW1wb3J0IHRlbXBmaWxlCmltcG9ydCB1bml0dGVzdApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKZnJvbSB1bml0dGVzdCBpbXBvcnQgbW9jawoKc3lzLnBhdGguaW5zZXJ0KDAsIHN0cihQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50LnBhcmVudCkpCgppbXBvcnQgY2xhc2htaQppbXBvcnQgcmVxdWVzdHMKZnJvbSBjbGFzaG1pIGltcG9ydCAoCiAgICBDbGFzaE1pQ2xpZW50LAogICAgQ2xhc2hNaUVycm9yLAogICAgQ2xhc2hNaVNldHRpbmdzLAogICAgX2Rlcml2ZV9zZWNyZXQsCiAgICBfc2V0dGluZ3NfZnJvbV9maWxlLAogICAgX3NldHRpbmdzX2Zyb21fcmVnaXN0cnksCikKCgpESUQgPSAiQUFBQUJCQkJDQ0NDREREREVFRUVGRkZGR0dHRyIKRElEX1NFQ1JFVCA9ICJDQ0NDREREREVFRUVGRkZGIiAgIyBESURbODoyNF0KCgpjbGFzcyBGYWtlUmVzcG9uc2U6CiAgICBkZWYgX19pbml0X18oc2VsZiwgc3RhdHVzX2NvZGU6IGludCA9IDIwMCwgcGF5bG9hZD1Ob25lLCB0ZXh0OiBzdHIgPSAiIik6CiAgICAgICAgc2VsZi5zdGF0dXNfY29kZSA9IHN0YXR1c19jb2RlCiAgICAgICAgc2VsZi5fcGF5bG9hZCA9IHBheWxvYWQgaWYgcGF5bG9hZCBpcyBub3QgTm9uZSBlbHNlIHt9CiAgICAgICAgc2VsZi50ZXh0ID0gdGV4dAoKICAgIEBwcm9wZXJ0eQogICAgZGVmIG9rKHNlbGYpIC0+IGJvb2w6CiAgICAgICAgcmV0dXJuIDIwMCA8PSBzZWxmLnN0YXR1c19jb2RlIDwgMzAwCgogICAgZGVmIGpzb24oc2VsZik6CiAgICAgICAgcmV0dXJuIHNlbGYuX3BheWxvYWQKCgpkZWYgbWFrZV9jbGllbnQoKSAtPiBDbGFzaE1pQ2xpZW50OgogICAgcmV0dXJuIENsYXNoTWlDbGllbnQoCiAgICAgICAgQ2xhc2hNaVNldHRpbmdzKGJhc2VfdXJsPSJodHRwOi8vMTI3LjAuMC4xOjkwOTAiLCBzZWNyZXQ9InMzY3JldCIsIHNvdXJjZT0idGVzdCIpCiAgICApCgoKY2xhc3MgU2V0dGluZ3NGcm9tRmlsZVRlc3RzKHVuaXR0ZXN0LlRlc3RDYXNlKToKICAgIGRlZiB3cml0ZV9zZXR0aW5ncyhzZWxmLCB0bXA6IHN0ciwgcGF5bG9hZCkgLT4gUGF0aDoKICAgICAgICBwYXRoID0gUGF0aCh0bXApIC8gInNlcnZpY2VfY29yZV9zZXR0aW5nLmpzb24iCiAgICAgICAgcGF0aC53cml0ZV90ZXh0KGpzb24uZHVtcHMocGF5bG9hZCksIGVuY29kaW5nPSJ1dGYtOCIpCiAgICAgICAgcmV0dXJuIHBhdGgKCiAgICBkZWYgdGVzdF9udWxsX3NlY3JldF9iZWNvbWVzX2VtcHR5X3N0cmluZyhzZWxmKSAtPiBOb25lOgogICAgICAgIHdpdGggdGVtcGZpbGUuVGVtcG9yYXJ5RGlyZWN0b3J5KCkgYXMgdG1wOgogICAgICAgICAgICBwYXRoID0gc2VsZi53cml0ZV9zZXR0aW5ncygKICAgICAgICAgICAgICAgIHRtcCwgeyJleHRlcm5hbC1jb250cm9sbGVyIjogIjEyNy4wLjAuMTo5MDkwIiwgInNlY3JldCI6IE5vbmV9CiAgICAgICAgICAgICkKICAgICAgICAgICAgc2V0dGluZ3MgPSBfc2V0dGluZ3NfZnJvbV9maWxlKHBhdGgpCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0SXNOb3ROb25lKHNldHRpbmdzKQogICAgICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHNldHRpbmdzLnNlY3JldCwgIiIpCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoc2V0dGluZ3MuYmFzZV91cmwsICJodHRwOi8vMTI3LjAuMC4xOjkwOTAiKQoKICAgIGRlZiB0ZXN0X251bGxfY29udHJvbGxlcl9pc19taXNzaW5nX25vdF9odHRwX25vbmUoc2VsZikgLT4gTm9uZToKICAgICAgICB3aXRoIHRlbXBmaWxlLlRlbXBvcmFyeURpcmVjdG9yeSgpIGFzIHRtcDoKICAgICAgICAgICAgcGF0aCA9IHNlbGYud3JpdGVfc2V0dGluZ3MoCiAgICAgICAgICAgICAgICB0bXAsIHsiZXh0ZXJuYWwtY29udHJvbGxlciI6IE5vbmUsICJzZWNyZXQiOiAiYWJjIn0KICAgICAgICAgICAgKQogICAgICAgICAgICBzZWxmLmFzc2VydElzTm9uZShfc2V0dGluZ3NfZnJvbV9maWxlKHBhdGgpKQoKICAgIGRlZiB0ZXN0X25vcm1hbF9maWxlKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgd2l0aCB0ZW1wZmlsZS5UZW1wb3JhcnlEaXJlY3RvcnkoKSBhcyB0bXA6CiAgICAgICAgICAgIHBhdGggPSBzZWxmLndyaXRlX3NldHRpbmdzKAogICAgICAgICAgICAgICAgdG1wLCB7ImV4dGVybmFsLWNvbnRyb2xsZXIiOiAiMTkyLjE2OC4xLjE6OTA5MCIsICJzZWNyZXQiOiAiYWJjIn0KICAgICAgICAgICAgKQogICAgICAgICAgICBzZXR0aW5ncyA9IF9zZXR0aW5nc19mcm9tX2ZpbGUocGF0aCkKICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZXR0aW5ncy5iYXNlX3VybCwgImh0dHA6Ly8xOTIuMTY4LjEuMTo5MDkwIikKICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZXR0aW5ncy5zZWNyZXQsICJhYmMiKQoKCmNsYXNzIERlcml2ZVNlY3JldFRlc3RzKHVuaXR0ZXN0LlRlc3RDYXNlKToKICAgIGRlZiB0ZXN0X2Rlcml2ZV9mcm9tX2RpZChzZWxmKSAtPiBOb25lOgogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoX2Rlcml2ZV9zZWNyZXQoRElEKSwgRElEX1NFQ1JFVCkKCiAgICBkZWYgdGVzdF9kZXJpdmVfZnJvbV9yZWdfYmluYXJ5X2J5dGVzKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChfZGVyaXZlX3NlY3JldChESUQuZW5jb2RlKCJ1dGYtOCIpKSwgRElEX1NFQ1JFVCkKCiAgICBkZWYgdGVzdF9zaG9ydF9kaWRfcmVqZWN0ZWQoc2VsZikgLT4gTm9uZToKICAgICAgICBzZWxmLmFzc2VydElzTm9uZShfZGVyaXZlX3NlY3JldCgic2hvcnQiKSkKICAgICAgICBzZWxmLmFzc2VydElzTm9uZShfZGVyaXZlX3NlY3JldChOb25lKSkKCiAgICBkZWYgdGVzdF9yZWdpc3RyeV9zZXR0aW5nc191c2VfZGVyaXZlZF9zZWNyZXQoc2VsZikgLT4gTm9uZToKICAgICAgICB3aXRoIG1vY2sucGF0Y2gub2JqZWN0KGNsYXNobWksICJfcmVhZF9yZWdpc3RyeV9kaWQiLCByZXR1cm5fdmFsdWU9RElEKToKICAgICAgICAgICAgc2V0dGluZ3MgPSBfc2V0dGluZ3NfZnJvbV9yZWdpc3RyeSgpCiAgICAgICAgc2VsZi5hc3NlcnRJc05vdE5vbmUoc2V0dGluZ3MpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZXR0aW5ncy5zZWNyZXQsIERJRF9TRUNSRVQpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZXR0aW5ncy5zb3VyY2UsICJyZWdpc3RyeSIpCgoKY2xhc3MgRGlzY292ZXJ5T3JkZXJUZXN0cyh1bml0dGVzdC5UZXN0Q2FzZSk6CiAgICBkZWYgdGVhckRvd24oc2VsZikgLT4gTm9uZToKICAgICAgICBjbGFzaG1pLmludmFsaWRhdGVfc2V0dGluZ3NfY2FjaGUoKQoKICAgIGRlZiB0ZXN0X2ZhbGxiYWNrX3doZW5fbm90aGluZ19mb3VuZChzZWxmKSAtPiBOb25lOgogICAgICAgIHdpdGggbW9jay5wYXRjaC5vYmplY3QoY2xhc2htaSwgIl9zZXR0aW5nc19mcm9tX2ZpbGUiLCByZXR1cm5fdmFsdWU9Tm9uZSksICgKICAgICAgICAgICAgbW9jay5wYXRjaC5vYmplY3QoY2xhc2htaSwgIl9yZWFkX3JlZ2lzdHJ5X2RpZCIsIHJldHVybl92YWx1ZT1Ob25lKQogICAgICAgICk6CiAgICAgICAgICAgIHNldHRpbmdzID0gQ2xhc2hNaUNsaWVudC5kaXNjb3Zlcl9zZXR0aW5ncyh1c2VfY2FjaGU9RmFsc2UpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZXR0aW5ncy5zb3VyY2UsICJmYWxsYmFjayIpCgoKY2xhc3MgQ2xvc2VDb25uZWN0aW9uc1Rlc3RzKHVuaXR0ZXN0LlRlc3RDYXNlKToKICAgIGRlZiB0ZXN0X2RlbGV0ZV9zZW50X2V2ZW5fd2hlbl9jb3VudF9nZXRfZmFpbHMoc2VsZikgLT4gTm9uZToKICAgICAgICBjbGllbnQgPSBtYWtlX2NsaWVudCgpCiAgICAgICAgY2FsbHM6IGxpc3Rbc3RyXSA9IFtdCgogICAgICAgIGRlZiBmYWtlX3JlcXVlc3QobWV0aG9kLCB1cmwsICoqa3dhcmdzKToKICAgICAgICAgICAgY2FsbHMuYXBwZW5kKG1ldGhvZCkKICAgICAgICAgICAgaWYgbWV0aG9kID09ICJHRVQiOgogICAgICAgICAgICAgICAgcmV0dXJuIEZha2VSZXNwb25zZSg1MDAsIHRleHQ9ImJvb20iKQogICAgICAgICAgICByZXR1cm4gRmFrZVJlc3BvbnNlKDIwNCkKCiAgICAgICAgd2l0aCBtb2NrLnBhdGNoLm9iamVjdChjbGFzaG1pLnJlcXVlc3RzLCAicmVxdWVzdCIsIHNpZGVfZWZmZWN0PWZha2VfcmVxdWVzdCk6CiAgICAgICAgICAgIGNsb3NlZCA9IGNsaWVudC5jbG9zZV9jb25uZWN0aW9ucygpCgogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoY2FsbHMsIFsiR0VUIiwgIkRFTEVURSJdKQogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoY2xvc2VkLCAtMSkgICMgY291bnQgdW5rbm93biwgREVMRVRFIHN0aWxsIHNlbnQKCiAgICBkZWYgdGVzdF9yZXR1cm5zX2NvdW50X2JlZm9yZV9jbG9zZShzZWxmKSAtPiBOb25lOgogICAgICAgIGNsaWVudCA9IG1ha2VfY2xpZW50KCkKCiAgICAgICAgZGVmIGZha2VfcmVxdWVzdChtZXRob2QsIHVybCwgKiprd2FyZ3MpOgogICAgICAgICAgICBpZiBtZXRob2QgPT0gIkdFVCI6CiAgICAgICAgICAgICAgICByZXR1cm4gRmFrZVJlc3BvbnNlKDIwMCwgeyJjb25uZWN0aW9ucyI6IFt7ImlkIjogMX0sIHsiaWQiOiAyfV19KQogICAgICAgICAgICByZXR1cm4gRmFrZVJlc3BvbnNlKDIwNCkKCiAgICAgICAgd2l0aCBtb2NrLnBhdGNoLm9iamVjdChjbGFzaG1pLnJlcXVlc3RzLCAicmVxdWVzdCIsIHNpZGVfZWZmZWN0PWZha2VfcmVxdWVzdCk6CiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoY2xpZW50LmNsb3NlX2Nvbm5lY3Rpb25zKCksIDIpCgogICAgZGVmIHRlc3RfZGVsZXRlX3RpbWVvdXRfcmFpc2VzX2NsYXNobWlfZXJyb3Ioc2VsZikgLT4gTm9uZToKICAgICAgICBjbGllbnQgPSBtYWtlX2NsaWVudCgpCgogICAgICAgIGRlZiBmYWtlX3JlcXVlc3QobWV0aG9kLCB1cmwsICoqa3dhcmdzKToKICAgICAgICAgICAgaWYgbWV0aG9kID09ICJHRVQiOgogICAgICAgICAgICAgICAgcmV0dXJuIEZha2VSZXNwb25zZSgyMDAsIHsiY29ubmVjdGlvbnMiOiBbXX0pCiAgICAgICAgICAgIHJhaXNlIHJlcXVlc3RzLlRpbWVvdXQoInRpbWVkIG91dCIpCgogICAgICAgIHdpdGggbW9jay5wYXRjaC5vYmplY3QoY2xhc2htaS5yZXF1ZXN0cywgInJlcXVlc3QiLCBzaWRlX2VmZmVjdD1mYWtlX3JlcXVlc3QpOgogICAgICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKENsYXNoTWlFcnJvcik6CiAgICAgICAgICAgICAgICBjbGllbnQuY2xvc2VfY29ubmVjdGlvbnMoKQoKCmNsYXNzIFVuYXV0aG9yaXplZFJldHJ5VGVzdHModW5pdHRlc3QuVGVzdENhc2UpOgogICAgZGVmIHRlYXJEb3duKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgY2xhc2htaS5pbnZhbGlkYXRlX3NldHRpbmdzX2NhY2hlKCkKCiAgICBkZWYgdGVzdF80MDFfcmVkaXNjb3ZlcnNfYW5kX3JldHJpZXNfb25jZShzZWxmKSAtPiBOb25lOgogICAgICAgIGNsaWVudCA9IENsYXNoTWlDbGllbnQoCiAgICAgICAgICAgIENsYXNoTWlTZXR0aW5ncyhiYXNlX3VybD0iaHR0cDovLzEyNy4wLjAuMTo5MDkwIiwgc2VjcmV0PSJvbGQiLCBzb3VyY2U9InRlc3QiKQogICAgICAgICkKICAgICAgICBmcmVzaCA9IENsYXNoTWlTZXR0aW5ncygKICAgICAgICAgICAgYmFzZV91cmw9Imh0dHA6Ly8xMjcuMC4wLjE6OTA5MCIsIHNlY3JldD0ibmV3Iiwgc291cmNlPSJyZWRpc2NvdmVyZWQiCiAgICAgICAgKQogICAgICAgIHNlZW5fYXV0aDogbGlzdFtzdHIgfCBOb25lXSA9IFtdCgogICAgICAgIGRlZiBmYWtlX3JlcXVlc3QobWV0aG9kLCB1cmwsIGhlYWRlcnM9Tm9uZSwgKiprd2FyZ3MpOgogICAgICAgICAgICBzZWVuX2F1dGguYXBwZW5kKChoZWFkZXJzIG9yIHt9KS5nZXQoIkF1dGhvcml6YXRpb24iKSkKICAgICAgICAgICAgaWYgbGVuKHNlZW5fYXV0aCkgPT0gMToKICAgICAgICAgICAgICAgIHJldHVybiBGYWtlUmVzcG9uc2UoNDAxKQogICAgICAgICAgICByZXR1cm4gRmFrZVJlc3BvbnNlKDIwMCwgeyJjb25uZWN0aW9ucyI6IFt7ImlkIjogMX1dfSkKCiAgICAgICAgd2l0aCBtb2NrLnBhdGNoLm9iamVjdCgKICAgICAgICAgICAgQ2xhc2hNaUNsaWVudCwKICAgICAgICAgICAgImRpc2NvdmVyX3NldHRpbmdzIiwKICAgICAgICAgICAgc3RhdGljbWV0aG9kKGxhbWJkYSB1c2VfY2FjaGU9VHJ1ZTogZnJlc2gpLAogICAgICAgICksIG1vY2sucGF0Y2gub2JqZWN0KGNsYXNobWkucmVxdWVzdHMsICJyZXF1ZXN0Iiwgc2lkZV9lZmZlY3Q9ZmFrZV9yZXF1ZXN0KToKICAgICAgICAgICAgY291bnQgPSBjbGllbnQuY29ubmVjdGlvbl9jb3VudCgpCgogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoY291bnQsIDEpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWVuX2F1dGgsIFsiQmVhcmVyIG9sZCIsICJCZWFyZXIgbmV3Il0pCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChjbGllbnQuc2V0dGluZ3Muc2VjcmV0LCAibmV3IikKCiAgICBkZWYgdGVzdF9wZXJzaXN0ZW50XzQwMV9yYWlzZXMoc2VsZikgLT4gTm9uZToKICAgICAgICBjbGllbnQgPSBtYWtlX2NsaWVudCgpCgogICAgICAgIGRlZiBmYWtlX3JlcXVlc3QobWV0aG9kLCB1cmwsICoqa3dhcmdzKToKICAgICAgICAgICAgcmV0dXJuIEZha2VSZXNwb25zZSg0MDEpCgogICAgICAgIHdpdGggbW9jay5wYXRjaC5vYmplY3QoCiAgICAgICAgICAgIENsYXNoTWlDbGllbnQsCiAgICAgICAgICAgICJkaXNjb3Zlcl9zZXR0aW5ncyIsCiAgICAgICAgICAgIHN0YXRpY21ldGhvZChsYW1iZGEgdXNlX2NhY2hlPVRydWU6IGNsaWVudC5zZXR0aW5ncyksCiAgICAgICAgKSwgbW9jay5wYXRjaC5vYmplY3QoY2xhc2htaS5yZXF1ZXN0cywgInJlcXVlc3QiLCBzaWRlX2VmZmVjdD1mYWtlX3JlcXVlc3QpOgogICAgICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKENsYXNoTWlFcnJvcik6CiAgICAgICAgICAgICAgICBjbGllbnQuY29ubmVjdGlvbl9jb3VudCgpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHVuaXR0ZXN0Lm1haW4oKQo=
+"""ClashMi discovery and client tests with a stubbed requests layer.
+
+Covers the review findings: JSON null settings turning into the string
+"None", REG_BINARY registry values, the pre-count GET gating the
+DELETE in close_connections, 401 rediscovery, and timeouts.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import clashmi
+import requests
+from clashmi import (
+    ClashMiClient,
+    ClashMiError,
+    ClashMiSettings,
+    _derive_secret,
+    _settings_from_file,
+    _settings_from_registry,
+)
+
+
+DID = "AAAABBBBCCCCDDDDEEEEFFFFGGGG"
+DID_SECRET = "CCCCDDDDEEEEFFFF"  # DID[8:24]
+
+
+class FakeResponse:
+    def __init__(self, status_code: int = 200, payload=None, text: str = ""):
+        self.status_code = status_code
+        self._payload = payload if payload is not None else {}
+        self.text = text
+
+    @property
+    def ok(self) -> bool:
+        return 200 <= self.status_code < 300
+
+    def json(self):
+        return self._payload
+
+
+def make_client() -> ClashMiClient:
+    return ClashMiClient(
+        ClashMiSettings(base_url="http://127.0.0.1:9090", secret="s3cret", source="test")
+    )
+
+
+class SettingsFromFileTests(unittest.TestCase):
+    def write_settings(self, tmp: str, payload) -> Path:
+        path = Path(tmp) / "service_core_setting.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def test_null_secret_becomes_empty_string(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_settings(
+                tmp, {"external-controller": "127.0.0.1:9090", "secret": None}
+            )
+            settings = _settings_from_file(path)
+            self.assertIsNotNone(settings)
+            self.assertEqual(settings.secret, "")
+            self.assertEqual(settings.base_url, "http://127.0.0.1:9090")
+
+    def test_null_controller_is_missing_not_http_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_settings(
+                tmp, {"external-controller": None, "secret": "abc"}
+            )
+            self.assertIsNone(_settings_from_file(path))
+
+    def test_normal_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_settings(
+                tmp, {"external-controller": "192.168.1.1:9090", "secret": "abc"}
+            )
+            settings = _settings_from_file(path)
+            self.assertEqual(settings.base_url, "http://192.168.1.1:9090")
+            self.assertEqual(settings.secret, "abc")
+
+
+class DeriveSecretTests(unittest.TestCase):
+    def test_derive_from_did(self) -> None:
+        self.assertEqual(_derive_secret(DID), DID_SECRET)
+
+    def test_derive_from_reg_binary_bytes(self) -> None:
+        self.assertEqual(_derive_secret(DID.encode("utf-8")), DID_SECRET)
+
+    def test_short_did_rejected(self) -> None:
+        self.assertIsNone(_derive_secret("short"))
+        self.assertIsNone(_derive_secret(None))
+
+    def test_registry_settings_use_derived_secret(self) -> None:
+        with mock.patch.object(clashmi, "_read_registry_did", return_value=DID):
+            settings = _settings_from_registry()
+        self.assertIsNotNone(settings)
+        self.assertEqual(settings.secret, DID_SECRET)
+        self.assertEqual(settings.source, "registry")
+
+
+class DiscoveryOrderTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        clashmi.invalidate_settings_cache()
+
+    def test_fallback_when_nothing_found(self) -> None:
+        with mock.patch.object(clashmi, "_settings_from_file", return_value=None), (
+            mock.patch.object(clashmi, "_read_registry_did", return_value=None)
+        ):
+            settings = ClashMiClient.discover_settings(use_cache=False)
+        self.assertEqual(settings.source, "fallback")
+
+
+class CloseConnectionsTests(unittest.TestCase):
+    def test_delete_sent_even_when_count_get_fails(self) -> None:
+        client = make_client()
+        calls: list[str] = []
+
+        def fake_request(method, url, **kwargs):
+            calls.append(method)
+            if method == "GET":
+                return FakeResponse(500, text="boom")
+            return FakeResponse(204)
+
+        with mock.patch.object(clashmi.requests, "request", side_effect=fake_request):
+            closed = client.close_connections()
+
+        self.assertEqual(calls, ["GET", "DELETE"])
+        self.assertEqual(closed, -1)  # count unknown, DELETE still sent
+
+    def test_returns_count_before_close(self) -> None:
+        client = make_client()
+
+        def fake_request(method, url, **kwargs):
+            if method == "GET":
+                return FakeResponse(200, {"connections": [{"id": 1}, {"id": 2}]})
+            return FakeResponse(204)
+
+        with mock.patch.object(clashmi.requests, "request", side_effect=fake_request):
+            self.assertEqual(client.close_connections(), 2)
+
+    def test_delete_timeout_raises_clashmi_error(self) -> None:
+        client = make_client()
+
+        def fake_request(method, url, **kwargs):
+            if method == "GET":
+                return FakeResponse(200, {"connections": []})
+            raise requests.Timeout("timed out")
+
+        with mock.patch.object(clashmi.requests, "request", side_effect=fake_request):
+            with self.assertRaises(ClashMiError):
+                client.close_connections()
+
+
+class UnauthorizedRetryTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        clashmi.invalidate_settings_cache()
+
+    def test_401_rediscovers_and_retries_once(self) -> None:
+        client = ClashMiClient(
+            ClashMiSettings(base_url="http://127.0.0.1:9090", secret="old", source="test")
+        )
+        fresh = ClashMiSettings(
+            base_url="http://127.0.0.1:9090", secret="new", source="rediscovered"
+        )
+        seen_auth: list[str | None] = []
+
+        def fake_request(method, url, headers=None, **kwargs):
+            seen_auth.append((headers or {}).get("Authorization"))
+            if len(seen_auth) == 1:
+                return FakeResponse(401)
+            return FakeResponse(200, {"connections": [{"id": 1}]})
+
+        with mock.patch.object(
+            ClashMiClient,
+            "discover_settings",
+            staticmethod(lambda use_cache=True: fresh),
+        ), mock.patch.object(clashmi.requests, "request", side_effect=fake_request):
+            count = client.connection_count()
+
+        self.assertEqual(count, 1)
+        self.assertEqual(seen_auth, ["Bearer old", "Bearer new"])
+        self.assertEqual(client.settings.secret, "new")
+
+    def test_persistent_401_raises(self) -> None:
+        client = make_client()
+
+        def fake_request(method, url, **kwargs):
+            return FakeResponse(401)
+
+        with mock.patch.object(
+            ClashMiClient,
+            "discover_settings",
+            staticmethod(lambda use_cache=True: client.settings),
+        ), mock.patch.object(clashmi.requests, "request", side_effect=fake_request):
+            with self.assertRaises(ClashMiError):
+                client.connection_count()
+
+
+if __name__ == "__main__":
+    unittest.main()
