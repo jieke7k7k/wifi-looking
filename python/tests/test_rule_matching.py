@@ -78,9 +78,15 @@ class DefaultRuleMatchingTests(unittest.TestCase):
             "current_ssid": None,
         }
         first = engine.evaluate(event, rules)
-        second = engine.evaluate(event, rules)
         self.assertEqual([r["id"] for r in first], ["xms-disconnect-close-clash"])
-        self.assertEqual(second, [])
+        # Evaluating alone must not consume the cooldown: a failed
+        # action run (e.g. ClashMi down) leaves the rule retryable.
+        second = engine.evaluate(event, rules)
+        self.assertEqual([r["id"] for r in second], ["xms-disconnect-close-clash"])
+        # Only a successful run (mark_run) starts the cooldown.
+        engine.mark_run("xms-disconnect-close-clash")
+        third = engine.evaluate(event, rules)
+        self.assertEqual(third, [])
 
 
 if __name__ == "__main__":

@@ -151,6 +151,36 @@ class MainWindowRuleTests(unittest.TestCase):
         self.assertEqual(len(ids), 3)
         self.assertTrue(any("Library" in rule_id for rule_id in ids))
 
+    def test_update_preserves_extra_actions(self) -> None:
+        # A hand-edited multi-action rule must not lose its extra
+        # actions when its first action is edited in the GUI.
+        self.rules()[0]["actions"] = [
+            {"type": "clashmi.close_connections"},
+            {"type": "clashmi.disable_tun"},
+        ]
+        self.window.table.selectRow(0)
+        self.window.cooldown_spin.setValue(45)
+        self.window._update_selected_rule()
+        rule = self.rules()[0]
+        self.assertEqual(
+            [action["type"] for action in rule["actions"]],
+            ["clashmi.close_connections", "clashmi.disable_tun"],
+        )
+        self.assertEqual(rule["cooldown_seconds"], 45)
+
+    def test_action_column_lists_all_actions(self) -> None:
+        self.rules()[0]["actions"] = [
+            {"type": "clashmi.close_connections"},
+            {"type": "clashmi.disable_tun"},
+        ]
+        self.window.refresh_rules()
+        self.assertIn("关闭 ClashMi TUN", self.window.table.item(0, 4).text())
+
+    def test_duplicate_detection_ignores_ssid_order(self) -> None:
+        self.set_form(EVENT_SWITCH, "Xms 5G, Xms", "*")
+        self.window._add_rule()
+        self.assertEqual(len(self.rules()), 2)
+
     def test_uncheck_disables_rule_and_saves(self) -> None:
         item = self.window.table.item(0, 0)
         item.setCheckState(Qt.CheckState.Unchecked)

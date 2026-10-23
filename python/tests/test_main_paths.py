@@ -49,6 +49,11 @@ class MainPathTests(unittest.TestCase):
                 self.assertTrue((Path(tmp) / "logs" / "app.log").exists())
             finally:
                 logging.shutdown()
+                # Drop the handlers setup_logging installed: the file
+                # handler points into this temp dir, and leaving it on
+                # the root logger makes later log calls in other tests
+                # fail once the directory is gone.
+                logging.getLogger().handlers.clear()
 
 
 if __name__ == "__main__":

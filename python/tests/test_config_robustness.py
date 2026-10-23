@@ -1,1 +1,91 @@
-IiIiQ29uZmlnIHJvYnVzdG5lc3MgdGVzdHM6IGF0b21pYyBzYXZlLCBsb2dnaW5nIGZpZWxkIHZhbGlkYXRpb24gYW5kCnN0YXJ0dXAgcmVjb3ZlcnkgZnJvbSBhIGNvcnJ1cHQgY29uZmlnLmpzb24uCiIiIgoKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmltcG9ydCBzeXMKaW1wb3J0IHRlbXBmaWxlCmltcG9ydCB1bml0dGVzdApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCm9zLmVudmlyb24uc2V0ZGVmYXVsdCgiUVRfUVBBX1BMQVRGT1JNIiwgIm9mZnNjcmVlbiIpCgpzeXMucGF0aC5pbnNlcnQoMCwgc3RyKFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnQucGFyZW50KSkKCmZyb20gY29uZmlnIGltcG9ydCBERUZBVUxUX0NPTkZJRywgQ29uZmlnRXJyb3IsIENvbmZpZ01hbmFnZXIKCnRyeToKICAgIGltcG9ydCBtYWluIGFzIGFwcF9tYWluCmV4Y2VwdCBJbXBvcnRFcnJvcjogICMgcHJhZ21hOiBubyBjb3ZlcgogICAgYXBwX21haW4gPSBOb25lCgoKY2xhc3MgTG9nZ2luZ1ZhbGlkYXRpb25UZXN0cyh1bml0dGVzdC5UZXN0Q2FzZSk6CiAgICBkZWYgbG9hZF93aXRoX2xvZ2dpbmcoc2VsZiwgbG9nZ2luZ19jZmcpIC0+IE5vbmU6CiAgICAgICAgd2l0aCB0ZW1wZmlsZS5UZW1wb3JhcnlEaXJlY3RvcnkoKSBhcyB0bXA6CiAgICAgICAgICAgIHBhdGggPSBQYXRoKHRtcCkgLyAiY29uZmlnLmpzb24iCiAgICAgICAgICAgIGNvbmZpZyA9IGpzb24ubG9hZHMoanNvbi5kdW1wcyhERUZBVUxUX0NPTkZJRykpCiAgICAgICAgICAgIGNvbmZpZ1sibG9nZ2luZyJdID0gbG9nZ2luZ19jZmcKICAgICAgICAgICAgcGF0aC53cml0ZV90ZXh0KGpzb24uZHVtcHMoY29uZmlnKSwgZW5jb2Rpbmc9InV0Zi04IikKICAgICAgICAgICAgQ29uZmlnTWFuYWdlcihwYXRoKS5sb2FkKCkKCiAgICBkZWYgdGVzdF9sb2dnaW5nX2ZpbGVfbXVzdF9iZV9zdHJpbmcoc2VsZikgLT4gTm9uZToKICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKENvbmZpZ0Vycm9yKToKICAgICAgICAgICAgc2VsZi5sb2FkX3dpdGhfbG9nZ2luZyh7ImxldmVsIjogIklORk8iLCAiZmlsZSI6IDEyM30pCgogICAgZGVmIHRlc3RfbG9nZ2luZ19sZXZlbF9tdXN0X2JlX3N0cmluZyhzZWxmKSAtPiBOb25lOgogICAgICAgIHdpdGggc2VsZi5hc3NlcnRSYWlzZXMoQ29uZmlnRXJyb3IpOgogICAgICAgICAgICBzZWxmLmxvYWRfd2l0aF9sb2dnaW5nKHsibGV2ZWwiOiAzLCAiZmlsZSI6ICJsb2dzL2FwcC5sb2cifSkKCiAgICBkZWYgdGVzdF92YWxpZF9sb2dnaW5nX3Bhc3NlcyhzZWxmKSAtPiBOb25lOgogICAgICAgIHNlbGYubG9hZF93aXRoX2xvZ2dpbmcoeyJsZXZlbCI6ICJERUJVRyIsICJmaWxlIjogImxvZ3MvYXBwLmxvZyJ9KQoKCmNsYXNzIEF0b21pY1NhdmVUZXN0cyh1bml0dGVzdC5UZXN0Q2FzZSk6CiAgICBkZWYgdGVzdF9zYXZlX3JvdW5kdHJpcHNfYW5kX2xlYXZlc19ub190ZW1wX2ZpbGVzKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgd2l0aCB0ZW1wZmlsZS5UZW1wb3JhcnlEaXJlY3RvcnkoKSBhcyB0bXA6CiAgICAgICAgICAgIHBhdGggPSBQYXRoKHRtcCkgLyAiY29uZmlnLmpzb24iCiAgICAgICAgICAgIG1hbmFnZXIgPSBDb25maWdNYW5hZ2VyKHBhdGgpCiAgICAgICAgICAgIG1hbmFnZXIubG9hZCgpCiAgICAgICAgICAgIG1hbmFnZXIuc2V0X3J1bGVzKFtdKQogICAgICAgICAgICBtYW5hZ2VyLnNhdmUoKQoKICAgICAgICAgICAgbGVmdG92ZXJzID0gW3AubmFtZSBmb3IgcCBpbiBQYXRoKHRtcCkuaXRlcmRpcigpIGlmIHAuc3VmZml4ID09ICIudG1wIl0KICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChsZWZ0b3ZlcnMsIFtdKQogICAgICAgICAgICByZWxvYWRlZCA9IENvbmZpZ01hbmFnZXIocGF0aCkKICAgICAgICAgICAgcmVsb2FkZWQubG9hZCgpCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocmVsb2FkZWQuZ2V0X3J1bGVzKCksIFtdKQoKCkB1bml0dGVzdC5za2lwSWYoYXBwX21haW4gaXMgTm9uZSwgIlB5U2lkZTYgbm90IGluc3RhbGxlZCIpCmNsYXNzIENvcnJ1cHRDb25maWdSZWNvdmVyeVRlc3RzKHVuaXR0ZXN0LlRlc3RDYXNlKToKICAgIGRlZiB0ZXN0X2NvcnJ1cHRfanNvbl9mYWxsc19iYWNrX3RvX2RlZmF1bHRzX2FuZF9iYWNrc191cChzZWxmKSAtPiBOb25lOgogICAgICAgIHdpdGggdGVtcGZpbGUuVGVtcG9yYXJ5RGlyZWN0b3J5KCkgYXMgdG1wOgogICAgICAgICAgICBwYXRoID0gUGF0aCh0bXApIC8gImNvbmZpZy5qc29uIgogICAgICAgICAgICBwYXRoLndyaXRlX3RleHQoInsgdGhpcyBpcyBub3QganNvbiIsIGVuY29kaW5nPSJ1dGYtOCIpCgogICAgICAgICAgICBtYW5hZ2VyID0gYXBwX21haW4ubG9hZF9jb25maWdfbWFuYWdlcihwYXRoKQoKICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChtYW5hZ2VyLmdldF9ydWxlcygpLCBERUZBVUxUX0NPTkZJR1sicnVsZXMiXSkKICAgICAgICAgICAgYmFja3VwID0gUGF0aCh0bXApIC8gImNvbmZpZy5qc29uLmNvcnJ1cHQiCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0VHJ1ZShiYWNrdXAuZXhpc3RzKCkpCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoYmFja3VwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSwgInsgdGhpcyBpcyBub3QganNvbiIpCiAgICAgICAgICAgICMgQSBmcmVzaCB2YWxpZCBkZWZhdWx0IGNvbmZpZyByZXBsYWNlZCB0aGUgY29ycnVwdCBvbmUuCiAgICAgICAgICAgIG1hbmFnZXIyID0gQ29uZmlnTWFuYWdlcihwYXRoKQogICAgICAgICAgICBtYW5hZ2VyMi5sb2FkKCkKICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChtYW5hZ2VyMi5nZXRfcnVsZXMoKSwgREVGQVVMVF9DT05GSUdbInJ1bGVzIl0pCgogICAgZGVmIHRlc3RfdmFsaWRfY29uZmlnX2xvYWRzX25vcm1hbGx5KHNlbGYpIC0+IE5vbmU6CiAgICAgICAgd2l0aCB0ZW1wZmlsZS5UZW1wb3JhcnlEaXJlY3RvcnkoKSBhcyB0bXA6CiAgICAgICAgICAgIHBhdGggPSBQYXRoKHRtcCkgLyAiY29uZmlnLmpzb24iCiAgICAgICAgICAgIHBhdGgud3JpdGVfdGV4dChqc29uLmR1bXBzKERFRkFVTFRfQ09ORklHKSwgZW5jb2Rpbmc9InV0Zi04IikKICAgICAgICAgICAgbWFuYWdlciA9IGFwcF9tYWluLmxvYWRfY29uZmlnX21hbmFnZXIocGF0aCkKICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChsZW4obWFuYWdlci5nZXRfcnVsZXMoKSksIDIpCiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RmFsc2UoKFBhdGgodG1wKSAvICJjb25maWcuanNvbi5jb3JydXB0IikuZXhpc3RzKCkpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHVuaXR0ZXN0Lm1haW4oKQo=
+"""Config robustness tests: atomic save, logging field validation and
+startup recovery from a corrupt config.json.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config import DEFAULT_CONFIG, ConfigError, ConfigManager
+
+try:
+    import main as app_main
+except ImportError:  # pragma: no cover
+    app_main = None
+
+
+class LoggingValidationTests(unittest.TestCase):
+    def load_with_logging(self, logging_cfg) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            config = json.loads(json.dumps(DEFAULT_CONFIG))
+            config["logging"] = logging_cfg
+            path.write_text(json.dumps(config), encoding="utf-8")
+            ConfigManager(path).load()
+
+    def test_logging_file_must_be_string(self) -> None:
+        with self.assertRaises(ConfigError):
+            self.load_with_logging({"level": "INFO", "file": 123})
+
+    def test_logging_level_must_be_string(self) -> None:
+        with self.assertRaises(ConfigError):
+            self.load_with_logging({"level": 3, "file": "logs/app.log"})
+
+    def test_valid_logging_passes(self) -> None:
+        self.load_with_logging({"level": "DEBUG", "file": "logs/app.log"})
+
+
+class AtomicSaveTests(unittest.TestCase):
+    def test_save_roundtrips_and_leaves_no_temp_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            manager = ConfigManager(path)
+            manager.load()
+            manager.set_rules([])
+            manager.save()
+
+            leftovers = [p.name for p in Path(tmp).iterdir() if p.suffix == ".tmp"]
+            self.assertEqual(leftovers, [])
+            reloaded = ConfigManager(path)
+            reloaded.load()
+            self.assertEqual(reloaded.get_rules(), [])
+
+
+@unittest.skipIf(app_main is None, "PySide6 not installed")
+class CorruptConfigRecoveryTests(unittest.TestCase):
+    def test_corrupt_json_falls_back_to_defaults_and_backs_up(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            path.write_text("{ this is not json", encoding="utf-8")
+
+            manager = app_main.load_config_manager(path)
+
+            self.assertEqual(manager.get_rules(), DEFAULT_CONFIG["rules"])
+            backup = Path(tmp) / "config.json.corrupt"
+            self.assertTrue(backup.exists())
+            self.assertEqual(backup.read_text(encoding="utf-8"), "{ this is not json")
+            # A fresh valid default config replaced the corrupt one.
+            manager2 = ConfigManager(path)
+            manager2.load()
+            self.assertEqual(manager2.get_rules(), DEFAULT_CONFIG["rules"])
+
+    def test_valid_config_loads_normally(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            path.write_text(json.dumps(DEFAULT_CONFIG), encoding="utf-8")
+            manager = app_main.load_config_manager(path)
+            self.assertEqual(len(manager.get_rules()), 2)
+            self.assertFalse((Path(tmp) / "config.json.corrupt").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
