@@ -1,1 +1,330 @@
-ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGFyZ3BhcnNlCmltcG9ydCBqc29uCmltcG9ydCBsb2dnaW5nCmltcG9ydCBvcwppbXBvcnQgc2lnbmFsCmltcG9ydCBzeXMKaW1wb3J0IHRocmVhZGluZwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKZnJvbSB0eXBpbmcgaW1wb3J0IENhbGxhYmxlCgpmcm9tIFB5U2lkZTYuUXRXaWRnZXRzIGltcG9ydCBRQXBwbGljYXRpb24KCgpmcm9tIGFjdGlvbl9leGVjdXRvciBpbXBvcnQgQWN0aW9uRXhlY3V0b3IKZnJvbSBjb25maWcgaW1wb3J0IENvbmZpZ0Vycm9yLCBDb25maWdNYW5hZ2VyCmZyb20gcnVsZV9lbmdpbmUgaW1wb3J0IFJ1bGVFbmdpbmUKZnJvbSB3aWZpX21vbml0b3IgaW1wb3J0IFdpZmlNb25pdG9yCgoKbG9nZ2VyID0gbG9nZ2luZy5nZXRMb2dnZXIoX19uYW1lX18pCgoKZGVmIGFwcF9kaXIoKSAtPiBQYXRoOgogICAgIiIiRGlyZWN0b3J5IHRoZSBhcHAgbGl2ZXMgaW4gKGV4ZSBkaXIgd2hlbiBmcm96ZW4sIHNjcmlwdCBkaXIgZWxzZSkuCgogICAgQ29uZmlnIGFuZCBsb2dzIGFyZSBhbmNob3JlZCBoZXJlIGluc3RlYWQgb2YgdGhlIGN1cnJlbnQgd29ya2luZwogICAgZGlyZWN0b3J5LCBzbyBsYXVuY2hpbmcgdGhlIGV4ZSBmcm9tIGEgc2hvcnRjdXQgb3IgYW5vdGhlciBmb2xkZXIKICAgIG5ldmVyIHNpbGVudGx5IGNyZWF0ZXMgYSBmcmVzaCBkZWZhdWx0IGNvbmZpZyBzb21ld2hlcmUgZWxzZS4KICAgICIiIgogICAgaWYgZ2V0YXR0cihzeXMsICJmcm96ZW4iLCBGYWxzZSk6CiAgICAgICAgcmV0dXJuIFBhdGgoc3lzLmV4ZWN1dGFibGUpLnJlc29sdmUoKS5wYXJlbnQKICAgIHJldHVybiBQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50CgoKZGVmIF9pc193cml0YWJsZV9kaXIocGF0aDogUGF0aCkgLT4gYm9vbDoKICAgIHRyeToKICAgICAgICBwYXRoLm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICBwcm9iZSA9IHBhdGggLyAiLndpZmktbG9va2luZy13cml0ZS10ZXN0IgogICAgICAgIHByb2JlLndyaXRlX3RleHQoIm9rIiwgZW5jb2Rpbmc9InV0Zi04IikKICAgICAgICBwcm9iZS51bmxpbmsoKQogICAgICAgIHJldHVybiBUcnVlCiAgICBleGNlcHQgT1NFcnJvcjoKICAgICAgICByZXR1cm4gRmFsc2UKCgpkZWYgZGF0YV9kaXIoKSAtPiBQYXRoOgogICAgIiIiRGlyZWN0b3J5IGhvbGRpbmcgY29uZmlnLmpzb24gYW5kIGxvZ3MuCgogICAgTm9ybWFsbHkgdGhlIGFwcCBkaXJlY3RvcnkgaXRzZWxmICh0aGUgaW5zdGFsbGVyIHRhcmdldHMgdGhlIHVzZXIncwogICAgb3duIGZvbGRlciwgd2hpY2ggaXMgd3JpdGFibGUpLiBJZiBpdCBpcyBub3Qgd3JpdGFibGUg4oCUIGUuZy4gdGhlIGV4ZQogICAgd2FzIGNvcGllZCBpbnRvIFByb2dyYW0gRmlsZXMg4oCUIGZhbGwgYmFjayB0byAlQVBQREFUQSVcXFdpRmktTG9va2luZwogICAgaW5zdGVhZCBvZiBjcmFzaGluZyBvbiBzdGFydHVwIG9yIGJlaW5nIHNpbGVudGx5IHJlZGlyZWN0ZWQgYnkgVUFDCiAgICB2aXJ0dWFsaXphdGlvbi4KICAgICIiIgogICAgYmFzZSA9IGFwcF9kaXIoKQogICAgaWYgX2lzX3dyaXRhYmxlX2RpcihiYXNlKToKICAgICAgICByZXR1cm4gYmFzZQoKICAgIGFwcGRhdGEgPSBvcy5lbnZpcm9uLmdldCgiQVBQREFUQSIpCiAgICBpZiBhcHBkYXRhOgogICAgICAgIGZhbGxiYWNrID0gUGF0aChhcHBkYXRhKSAvICJXaUZpLUxvb2tpbmciCiAgICAgICAgdHJ5OgogICAgICAgICAgICBmYWxsYmFjay5ta2RpcihwYXJlbnRzPVRydWUsIGV4aXN0X29rPVRydWUpCiAgICAgICAgICAgIHJldHVybiBmYWxsYmFjawogICAgICAgIGV4Y2VwdCBPU0Vycm9yOgogICAgICAgICAgICBwYXNzCiAgICByZXR1cm4gYmFzZQoKCmRlZiBsb2FkX2NvbmZpZ19tYW5hZ2VyKGNvbmZpZ19wYXRoOiBQYXRoKSAtPiBDb25maWdNYW5hZ2VyOgogICAgIiIiTG9hZCBjb25maWcsIHJlY292ZXJpbmcgZnJvbSBhIGNvcnJ1cHQgZmlsZSBpbnN0ZWFkIG9mIGNyYXNoaW5nLgoKICAgIEEgZGFtYWdlZCBjb25maWcuanNvbiBpcyBtb3ZlZCBhc2lkZSB0byBgYGNvbmZpZy5qc29uLmNvcnJ1cHRgYCBhbmQKICAgIHRoZSBhcHAgc3RhcnRzIGZyb20gZGVmYXVsdHMsIHNvIG9uZSBiYWQgd3JpdGUgY2FuIG5ldmVyIGJyaWNrIGV2ZXJ5CiAgICBmdXR1cmUgbGF1bmNoICh0aGUgcGFja2FnZWQgYnVpbGQgaGFzIG5vIGNvbnNvbGUgdG8gc2hvdyBhIHRyYWNlYmFjaykuCiAgICAiIiIKICAgIG1hbmFnZXIgPSBDb25maWdNYW5hZ2VyKGNvbmZpZ19wYXRoKQogICAgdHJ5OgogICAgICAgIG1hbmFnZXIubG9hZCgpCiAgICAgICAgcmV0dXJuIG1hbmFnZXIKICAgIGV4Y2VwdCAoQ29uZmlnRXJyb3IsIE9TRXJyb3IpIGFzIGV4YzoKICAgICAgICBsb2dnZXIud2FybmluZygiQ29uZmlnICVzIHVudXNhYmxlICglcyk7IHN0YXJ0aW5nIGZyb20gZGVmYXVsdHMiLCBjb25maWdfcGF0aCwgZXhjKQoKICAgIHRyeToKICAgICAgICBjb25maWdfcGF0aC5yZXBsYWNlKGNvbmZpZ19wYXRoLndpdGhfbmFtZShjb25maWdfcGF0aC5uYW1lICsgIi5jb3JydXB0IikpCiAgICBleGNlcHQgT1NFcnJvcjoKICAgICAgICBwYXNzCgogICAgbWFuYWdlciA9IENvbmZpZ01hbmFnZXIoY29uZmlnX3BhdGgpCiAgICB0cnk6CiAgICAgICAgbWFuYWdlci5zYXZlKCkKICAgIGV4Y2VwdCBPU0Vycm9yOgogICAgICAgIGxvZ2dlci53YXJuaW5nKCJDb3VsZCBub3Qgd3JpdGUgYSBmcmVzaCBkZWZhdWx0IGNvbmZpZyB0byAlcyIsIGNvbmZpZ19wYXRoKQogICAgcmV0dXJuIG1hbmFnZXIKCgpkZWYgcGFyc2VfYXJncyhhcmd2OiBsaXN0W3N0cl0gfCBOb25lID0gTm9uZSkgLT4gYXJncGFyc2UuTmFtZXNwYWNlOgogICAgcGFyc2VyID0gYXJncGFyc2UuQXJndW1lbnRQYXJzZXIoZGVzY3JpcHRpb249IldpRmktTG9va2luZyBiYWNrZ3JvdW5kIGRhZW1vbiIpCiAgICBwYXJzZXIuYWRkX2FyZ3VtZW50KAogICAgICAgICItLWNvbmZpZyIsCiAgICAgICAgZGVmYXVsdD1Ob25lLAogICAgICAgIGhlbHA9IlBhdGggdG8gY29uZmlnLmpzb24gKGRlZmF1bHQ6IGNvbmZpZy5qc29uIG5leHQgdG8gdGhlIGFwcCkiLAogICAgKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgKICAgICAgICAiLS1kcnktcnVuIiwKICAgICAgICBhY3Rpb249InN0b3JlX3RydWUiLAogICAgICAgIGhlbHA9Ik1hdGNoIHJ1bGVzIGJ1dCBkbyBub3QgZXhlY3V0ZSBhY3Rpb25zIiwKICAgICkKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoCiAgICAgICAgIi0tbm8tdHJheSIsCiAgICAgICAgYWN0aW9uPSJzdG9yZV90cnVlIiwKICAgICAgICBoZWxwPSJSdW4gaW4gY29uc29sZSBtb2RlIGluc3RlYWQgb2YgR1VJICsgdHJheSBtb2RlIiwKICAgICkKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoCiAgICAgICAgIi0tbm8tbmF0aXZlIiwKICAgICAgICBhY3Rpb249InN0b3JlX3RydWUiLAogICAgICAgIGhlbHA9IkZvcmNlIHBvbGxpbmcgbW9kZSBldmVuIGlmIG5hdGl2ZSBub3RpZmljYXRpb25zIGFyZSBlbmFibGVkIiwKICAgICkKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoCiAgICAgICAgIi0tb25jZSIsCiAgICAgICAgYWN0aW9uPSJzdG9yZV90cnVlIiwKICAgICAgICBoZWxwPSJSZWFkIG9uZSBXaS1GaSBzdGF0ZSBhbmQgZXhpdCIsCiAgICApCiAgICByZXR1cm4gcGFyc2VyLnBhcnNlX2FyZ3MoYXJndikKCgpkZWYgc2V0dXBfbG9nZ2luZyhjb25maWdfbWFuYWdlcjogQ29uZmlnTWFuYWdlcikgLT4gTm9uZToKICAgIGxvZ2dpbmdfY29uZmlnID0gY29uZmlnX21hbmFnZXIuZ2V0X2xvZ2dpbmdfY29uZmlnKCkKICAgIGxldmVsX25hbWUgPSBzdHIobG9nZ2luZ19jb25maWcuZ2V0KCJsZXZlbCIsICJJTkZPIikpLnVwcGVyKCkKICAgIGxldmVsID0gZ2V0YXR0cihsb2dnaW5nLCBsZXZlbF9uYW1lLCBsb2dnaW5nLklORk8pCiAgICBsb2dfZmlsZSA9IGxvZ2dpbmdfY29uZmlnLmdldCgiZmlsZSIsICJsb2dzL2FwcC5sb2ciKQoKICAgIGxvZ19wYXRoID0gUGF0aChsb2dfZmlsZSkKICAgIGlmIG5vdCBsb2dfcGF0aC5pc19hYnNvbHV0ZSgpOgogICAgICAgIGxvZ19wYXRoID0gY29uZmlnX21hbmFnZXIuY29uZmlnX3BhdGgucmVzb2x2ZSgpLnBhcmVudCAvIGxvZ19wYXRoCiAgICBsb2dfcGF0aC5wYXJlbnQubWtkaXIocGFyZW50cz1UcnVlLCBleGlzdF9vaz1UcnVlKQoKICAgIGhhbmRsZXJzOiBsaXN0W2xvZ2dpbmcuSGFuZGxlcl0gPSBbCiAgICAgICAgbG9nZ2luZy5GaWxlSGFuZGxlcihsb2dfcGF0aCwgZW5jb2Rpbmc9InV0Zi04IikKICAgIF0KICAgICMgSW4gdGhlIC0tbm9jb25zb2xlIHBhY2thZ2VkIGJ1aWxkIHN5cy5zdGRvdXQgaXMgTm9uZTsgYXR0YWNoaW5nIGEKICAgICMgU3RyZWFtSGFuZGxlciB0aGVuIG1ha2VzIGV2ZXJ5IGxvZyBjYWxsIHJhaXNlIGluc2lkZSB0aGUgaGFuZGxlci4KICAgIGlmIHN5cy5zdGRvdXQgaXMgbm90IE5vbmU6CiAgICAgICAgaGFuZGxlcnMuYXBwZW5kKGxvZ2dpbmcuU3RyZWFtSGFuZGxlcihzeXMuc3Rkb3V0KSkKCiAgICBsb2dnaW5nLmJhc2ljQ29uZmlnKAogICAgICAgIGxldmVsPWxldmVsLAogICAgICAgIGZvcm1hdD0iJShhc2N0aW1lKXMgJShsZXZlbG5hbWUpcyAlKG5hbWUpcyAlKG1lc3NhZ2UpcyIsCiAgICAgICAgaGFuZGxlcnM9aGFuZGxlcnMsCiAgICAgICAgZm9yY2U9VHJ1ZSwKICAgICkKCgpkZWYgcnVuX29uY2UoY29uZmlnX21hbmFnZXI6IENvbmZpZ01hbmFnZXIpIC0+IGludDoKICAgIG1vbml0b3IgPSBXaWZpTW9uaXRvcigKICAgICAgICBpbnRlcnZhbF9zZWNvbmRzPWNvbmZpZ19tYW5hZ2VyLmdldF9tb25pdG9yX2NvbmZpZygpLmdldCgiaW50ZXJ2YWxfc2Vjb25kcyIsIDEuMCksCiAgICAgICAgZGVib3VuY2VfY291bnQ9MSwKICAgICkKICAgIHRyeToKICAgICAgICBzdGF0ZSA9IG1vbml0b3IucmVhZF9zdGF0ZSgpCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGV4YzoKICAgICAgICBwcmludChqc29uLmR1bXBzKHsiZXJyb3IiOiBzdHIoZXhjKX0sIGVuc3VyZV9hc2NpaT1GYWxzZSkpCiAgICAgICAgcmV0dXJuIDEKICAgIHByaW50KAogICAgICAgIGpzb24uZHVtcHMoCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb25uZWN0ZWQiOiBzdGF0ZS5jb25uZWN0ZWQsCiAgICAgICAgICAgICAgICAic3NpZCI6IHN0YXRlLnNzaWQsCiAgICAgICAgICAgICAgICAiaW50ZXJmYWNlX25hbWUiOiBzdGF0ZS5pbnRlcmZhY2VfbmFtZSwKICAgICAgICAgICAgICAgICJzdGF0ZV90ZXh0Ijogc3RhdGUuc3RhdGVfdGV4dCwKICAgICAgICAgICAgfSwKICAgICAgICAgICAgZW5zdXJlX2FzY2lpPUZhbHNlLAogICAgICAgICkKICAgICkKICAgIHJldHVybiAwCgoKZGVmIG1ha2VfZXZlbnRfaGFuZGxlcigKICAgIGNvbmZpZ19tYW5hZ2VyOiBDb25maWdNYW5hZ2VyLAogICAgcnVsZV9lbmdpbmU6IFJ1bGVFbmdpbmUsCiAgICBhY3Rpb25fZXhlY3V0b3I6IEFjdGlvbkV4ZWN1dG9yLAogICAgZHJ5X3J1bjogYm9vbCA9IEZhbHNlLAopIC0+IENhbGxhYmxlW1tkaWN0XSwgTm9uZV06CiAgICAiIiJCdWlsZCB0aGUgbW9uaXRvcidzIGV2ZW50IGhhbmRsZXIgKHNoYXJlZCBieSBHVUkgYW5kIGNvbnNvbGUgbW9kZSkuIiIiCgogICAgZGVmIGhhbmRsZV9ldmVudChldmVudDogZGljdCkgLT4gTm9uZToKICAgICAgICBsb2dnZXIuaW5mbygiV2ktRmkgZXZlbnQgZGV0ZWN0ZWQ6ICVzIiwgZXZlbnQpCiAgICAgICAgcnVsZXMgPSBjb25maWdfbWFuYWdlci5nZXRfcnVsZXMoKQogICAgICAgIG1hdGNoZWRfcnVsZXMgPSBydWxlX2VuZ2luZS5ldmFsdWF0ZShldmVudCwgcnVsZXMpCgogICAgICAgIGZvciBydWxlIGluIG1hdGNoZWRfcnVsZXM6CiAgICAgICAgICAgIGxvZ2dlci5pbmZvKCJSdWxlIG1hdGNoZWQ6ICVzIiwgcnVsZS5nZXQoImlkIikpCiAgICAgICAgICAgIGFsbF9vayA9IFRydWUKICAgICAgICAgICAgZm9yIGFjdGlvbiBpbiBydWxlLmdldCgiYWN0aW9ucyIsIFtdKToKICAgICAgICAgICAgICAgIHJlc3VsdCA9IGFjdGlvbl9leGVjdXRvci5leGVjdXRlX2FjdGlvbigKICAgICAgICAgICAgICAgICAgICBhY3Rpb24sCiAgICAgICAgICAgICAgICAgICAgZXZlbnQsCiAgICAgICAgICAgICAgICAgICAgZHJ5X3J1bj1kcnlfcnVuLAogICAgICAgICAgICAgICAgKQogICAgICAgICAgICAgICAgbG9nZ2VyLmluZm8oIkFjdGlvbiByZXN1bHQ6ICVzIiwgcmVzdWx0KQogICAgICAgICAgICAgICAgaWYgbm90IHJlc3VsdC5nZXQoIm9rIik6CiAgICAgICAgICAgICAgICAgICAgYWxsX29rID0gRmFsc2UKICAgICAgICAgICAgIyBDb29sZG93biBzdGFydHMgb25seSBhZnRlciBhIGZ1bGx5IHN1Y2Nlc3NmdWwgcnVuLCBzbyBhCiAgICAgICAgICAgICMgdHJhbnNpZW50IGZhaWx1cmUgKENsYXNoTWkgZG93biwgNDAxKSBpcyByZXRyaWVkIG9uIHRoZQogICAgICAgICAgICAjIG5leHQgZXZlbnQgaW5zdGVhZCBvZiBiZWluZyBzd2FsbG93ZWQgYnkgdGhlIGNvb2xkb3duLgogICAgICAgICAgICBpZiBhbGxfb2s6CiAgICAgICAgICAgICAgICBydWxlX2VuZ2luZS5tYXJrX3J1bihydWxlWyJpZCJdKQoKICAgIHJldHVybiBoYW5kbGVfZXZlbnQKCgpkZWYgY3JlYXRlX21vbml0b3IoY29uZmlnX21hbmFnZXI6IENvbmZpZ01hbmFnZXIsIGFyZ3M6IGFyZ3BhcnNlLk5hbWVzcGFjZSwgaGFuZGxlX2V2ZW50KSAtPiBXaWZpTW9uaXRvcjoKICAgIG1vbml0b3JfY29uZmlnID0gY29uZmlnX21hbmFnZXIuZ2V0X21vbml0b3JfY29uZmlnKCkKICAgIHVzZV9uYXRpdmUgPSBib29sKAogICAgICAgIG1vbml0b3JfY29uZmlnLmdldCgidXNlX25hdGl2ZV9ub3RpZmljYXRpb25zIiwgVHJ1ZSkKICAgICAgICBhbmQgbm90IGFyZ3Mubm9fbmF0aXZlCiAgICAgICAgYW5kIHN5cy5wbGF0Zm9ybSA9PSAid2luMzIiCiAgICApCgogICAgaWYgdXNlX25hdGl2ZToKICAgICAgICB0cnk6CiAgICAgICAgICAgIGZyb20gbmF0aXZlX3dpZmlfbW9uaXRvciBpbXBvcnQgTmF0aXZlV2lmaU1vbml0b3IKCiAgICAgICAgICAgIHJldHVybiBOYXRpdmVXaWZpTW9uaXRvcigKICAgICAgICAgICAgICAgIGludGVydmFsX3NlY29uZHM9bW9uaXRvcl9jb25maWcuZ2V0KCJpbnRlcnZhbF9zZWNvbmRzIiwgMS4wKSwKICAgICAgICAgICAgICAgIGRlYm91bmNlX2NvdW50PW1vbml0b3JfY29uZmlnLmdldCgiZGVib3VuY2VfY291bnQiLCAyKSwKICAgICAgICAgICAgICAgIG9uX2V2ZW50PWhhbmRsZV9ldmVudCwKICAgICAgICAgICAgKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgICAgIGxvZ2dlci5leGNlcHRpb24oIkZhaWxlZCB0byBjcmVhdGUgbmF0aXZlIFdMQU4gbW9uaXRvcjsgdXNpbmcgcG9sbGluZyIpCgogICAgcmV0dXJuIFdpZmlNb25pdG9yKAogICAgICAgIGludGVydmFsX3NlY29uZHM9bW9uaXRvcl9jb25maWcuZ2V0KCJpbnRlcnZhbF9zZWNvbmRzIiwgMS4wKSwKICAgICAgICBkZWJvdW5jZV9jb3VudD1tb25pdG9yX2NvbmZpZy5nZXQoImRlYm91bmNlX2NvdW50IiwgMiksCiAgICAgICAgb25fZXZlbnQ9aGFuZGxlX2V2ZW50LAogICAgKQoKCmRlZiBydW5fZ3VpKGNvbmZpZ19tYW5hZ2VyOiBDb25maWdNYW5hZ2VyLCBhcmdzOiBhcmdwYXJzZS5OYW1lc3BhY2UpIC0+IGludDoKICAgIGFwcCA9IFFBcHBsaWNhdGlvbihzeXMuYXJndikKICAgIGFwcC5zZXRBcHBsaWNhdGlvbk5hbWUoIldpRmktTG9va2luZyIpCiAgICBhcHAuc2V0UXVpdE9uTGFzdFdpbmRvd0Nsb3NlZChGYWxzZSkKCiAgICBzdG9wX2V2ZW50ID0gdGhyZWFkaW5nLkV2ZW50KCkKICAgIGFjdGlvbl9leGVjdXRvciA9IEFjdGlvbkV4ZWN1dG9yKCkKICAgIHJ1bGVfZW5naW5lID0gUnVsZUVuZ2luZSgpCiAgICBoYW5kbGVfZXZlbnQgPSBtYWtlX2V2ZW50X2hhbmRsZXIoCiAgICAgICAgY29uZmlnX21hbmFnZXIsIHJ1bGVfZW5naW5lLCBhY3Rpb25fZXhlY3V0b3IsIGRyeV9ydW49YXJncy5kcnlfcnVuCiAgICApCgogICAgbW9uaXRvciA9IGNyZWF0ZV9tb25pdG9yKGNvbmZpZ19tYW5hZ2VyLCBhcmdzLCBoYW5kbGVfZXZlbnQpCiAgICBtb25pdG9yLnN0YXJ0KCkKCiAgICBmcm9tIG1haW5fd2luZG93IGltcG9ydCBNYWluV2luZG93CiAgICBmcm9tIHRyYXlfYXBwIGltcG9ydCBUcmF5QXBwCgogICAgbWFpbl93aW5kb3cgPSBNYWluV2luZG93KGNvbmZpZ19tYW5hZ2VyLCBtb25pdG9yKQogICAgbWFpbl93aW5kb3cuc2hvdygpCgogICAgdHJheSA9IFRyYXlBcHAoCiAgICAgICAgYXBwPWFwcCwKICAgICAgICBjb25maWdfbWFuYWdlcj1jb25maWdfbWFuYWdlciwKICAgICAgICBtb25pdG9yPW1vbml0b3IsCiAgICAgICAgbWFpbl93aW5kb3c9bWFpbl93aW5kb3csCiAgICApCiAgICB0cmF5LnNob3coKQoKICAgIGFwcC5hYm91dFRvUXVpdC5jb25uZWN0KG1vbml0b3Iuc3RvcCkKCiAgICBkZWYgaGFuZGxlX3NpZ25hbChzaWdudW06IGludCwgZnJhbWU6IG9iamVjdCkgLT4gTm9uZToKICAgICAgICBsb2dnZXIuaW5mbygiUmVjZWl2ZWQgc2lnbmFsICVzOyBzdG9wcGluZyIsIHNpZ251bSkKICAgICAgICBzdG9wX2V2ZW50LnNldCgpCiAgICAgICAgbW9uaXRvci5zdG9wKCkKICAgICAgICBhcHAucXVpdCgpCgogICAgc2lnbmFsLnNpZ25hbChzaWduYWwuU0lHSU5ULCBoYW5kbGVfc2lnbmFsKQogICAgc2lnbmFsLnNpZ25hbChzaWduYWwuU0lHVEVSTSwgaGFuZGxlX3NpZ25hbCkKCiAgICBsb2dnZXIuaW5mbygiV2lGaS1Mb29raW5nIEdVSSBzdGFydGVkIikKICAgIHJldHVybiBhcHAuZXhlYygpCgoKZGVmIHJ1bl9jb25zb2xlKGNvbmZpZ19tYW5hZ2VyOiBDb25maWdNYW5hZ2VyLCBhcmdzOiBhcmdwYXJzZS5OYW1lc3BhY2UpIC0+IGludDoKICAgIGxvZ2dlci5pbmZvKCJSdW5uaW5nIGluIGNvbnNvbGUgbW9kZSIpCgogICAgc3RvcF9ldmVudCA9IHRocmVhZGluZy5FdmVudCgpCiAgICBhY3Rpb25fZXhlY3V0b3IgPSBBY3Rpb25FeGVjdXRvcigpCiAgICBydWxlX2VuZ2luZSA9IFJ1bGVFbmdpbmUoKQogICAgaGFuZGxlX2V2ZW50ID0gbWFrZV9ldmVudF9oYW5kbGVyKAogICAgICAgIGNvbmZpZ19tYW5hZ2VyLCBydWxlX2VuZ2luZSwgYWN0aW9uX2V4ZWN1dG9yLCBkcnlfcnVuPWFyZ3MuZHJ5X3J1bgogICAgKQoKICAgIG1vbml0b3IgPSBjcmVhdGVfbW9uaXRvcihjb25maWdfbWFuYWdlciwgYXJncywgaGFuZGxlX2V2ZW50KQogICAgbW9uaXRvci5zdGFydCgpCgogICAgZGVmIGhhbmRsZV9zaWduYWwoc2lnbnVtOiBpbnQsIGZyYW1lOiBvYmplY3QpIC0+IE5vbmU6CiAgICAgICAgbG9nZ2VyLmluZm8oIlJlY2VpdmVkIHNpZ25hbCAlczsgc3RvcHBpbmciLCBzaWdudW0pCiAgICAgICAgc3RvcF9ldmVudC5zZXQoKQogICAgICAgIG1vbml0b3Iuc3RvcCgpCgogICAgc2lnbmFsLnNpZ25hbChzaWduYWwuU0lHSU5ULCBoYW5kbGVfc2lnbmFsKQogICAgc2lnbmFsLnNpZ25hbChzaWduYWwuU0lHVEVSTSwgaGFuZGxlX3NpZ25hbCkKCiAgICB3aGlsZSBub3Qgc3RvcF9ldmVudC5pc19zZXQoKToKICAgICAgICBzdG9wX2V2ZW50LndhaXQodGltZW91dD0xLjApCgogICAgbG9nZ2VyLmluZm8oIldpRmktTG9va2luZyBzdG9wcGVkIikKICAgIHJldHVybiAwCgoKZGVmIG1haW4oYXJndjogbGlzdFtzdHJdIHwgTm9uZSA9IE5vbmUpIC0+IGludDoKICAgIGFyZ3MgPSBwYXJzZV9hcmdzKGFyZ3YpCiAgICBjb25maWdfbWFuYWdlciA9IGxvYWRfY29uZmlnX21hbmFnZXIoCiAgICAgICAgUGF0aChhcmdzLmNvbmZpZykgaWYgYXJncy5jb25maWcgZWxzZSBkYXRhX2RpcigpIC8gImNvbmZpZy5qc29uIgogICAgKQogICAgc2V0dXBfbG9nZ2luZyhjb25maWdfbWFuYWdlcikKCiAgICBpZiBhcmdzLm9uY2U6CiAgICAgICAgcmV0dXJuIHJ1bl9vbmNlKGNvbmZpZ19tYW5hZ2VyKQoKICAgIGlmIGFyZ3Mubm9fdHJheToKICAgICAgICByZXR1cm4gcnVuX2NvbnNvbGUoY29uZmlnX21hbmFnZXIsIGFyZ3MpCgogICAgcmV0dXJuIHJ1bl9ndWkoY29uZmlnX21hbmFnZXIsIGFyZ3MpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJhaXNlIFN5c3RlbUV4aXQobWFpbigpKQo=
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import signal
+import sys
+import threading
+from pathlib import Path
+from typing import Callable
+
+from PySide6.QtWidgets import QApplication
+
+
+from action_executor import ActionExecutor
+from config import ConfigError, ConfigManager
+from rule_engine import RuleEngine
+from wifi_monitor import WifiMonitor
+
+
+logger = logging.getLogger(__name__)
+
+
+def app_dir() -> Path:
+    """Directory the app lives in (exe dir when frozen, script dir else).
+
+    Config and logs are anchored here instead of the current working
+    directory, so launching the exe from a shortcut or another folder
+    never silently creates a fresh default config somewhere else.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def _is_writable_dir(path: Path) -> bool:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".wifi-looking-write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def data_dir() -> Path:
+    """Directory holding config.json and logs.
+
+    Normally the app directory itself (the installer targets the user's
+    own folder, which is writable). If it is not writable — e.g. the exe
+    was copied into Program Files — fall back to %APPDATA%\\WiFi-Looking
+    instead of crashing on startup or being silently redirected by UAC
+    virtualization.
+    """
+    base = app_dir()
+    if _is_writable_dir(base):
+        return base
+
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        fallback = Path(appdata) / "WiFi-Looking"
+        try:
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
+        except OSError:
+            pass
+    return base
+
+
+def load_config_manager(config_path: Path) -> ConfigManager:
+    """Load config, recovering from a corrupt file instead of crashing.
+
+    A damaged config.json is moved aside to ``config.json.corrupt`` and
+    the app starts from defaults, so one bad write can never brick every
+    future launch (the packaged build has no console to show a traceback).
+    """
+    manager = ConfigManager(config_path)
+    try:
+        manager.load()
+        return manager
+    except (ConfigError, OSError) as exc:
+        logger.warning("Config %s unusable (%s); starting from defaults", config_path, exc)
+
+    try:
+        config_path.replace(config_path.with_name(config_path.name + ".corrupt"))
+    except OSError:
+        pass
+
+    manager = ConfigManager(config_path)
+    try:
+        manager.save()
+    except OSError:
+        logger.warning("Could not write a fresh default config to %s", config_path)
+    return manager
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="WiFi-Looking background daemon")
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to config.json (default: config.json next to the app)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Match rules but do not execute actions",
+    )
+    parser.add_argument(
+        "--no-tray",
+        action="store_true",
+        help="Run in console mode instead of GUI + tray mode",
+    )
+    parser.add_argument(
+        "--no-native",
+        action="store_true",
+        help="Force polling mode even if native notifications are enabled",
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Read one Wi-Fi state and exit",
+    )
+    return parser.parse_args(argv)
+
+
+def setup_logging(config_manager: ConfigManager) -> None:
+    logging_config = config_manager.get_logging_config()
+    level_name = str(logging_config.get("level", "INFO")).upper()
+    level = getattr(logging, level_name, logging.INFO)
+    log_file = logging_config.get("file", "logs/app.log")
+
+    log_path = Path(log_file)
+    if not log_path.is_absolute():
+        log_path = config_manager.config_path.resolve().parent / log_path
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    handlers: list[logging.Handler] = [
+        logging.FileHandler(log_path, encoding="utf-8")
+    ]
+    # In the --noconsole packaged build sys.stdout is None; attaching a
+    # StreamHandler then makes every log call raise inside the handler.
+    if sys.stdout is not None:
+        handlers.append(logging.StreamHandler(sys.stdout))
+
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+
+
+def run_once(config_manager: ConfigManager) -> int:
+    monitor = WifiMonitor(
+        interval_seconds=config_manager.get_monitor_config().get("interval_seconds", 1.0),
+        debounce_count=1,
+    )
+    try:
+        state = monitor.read_state()
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+        return 1
+    print(
+        json.dumps(
+            {
+                "connected": state.connected,
+                "ssid": state.ssid,
+                "interface_name": state.interface_name,
+                "state_text": state.state_text,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def make_event_handler(
+    config_manager: ConfigManager,
+    rule_engine: RuleEngine,
+    action_executor: ActionExecutor,
+    dry_run: bool = False,
+) -> Callable[[dict], None]:
+    """Build the monitor's event handler (shared by GUI and console mode)."""
+
+    def handle_event(event: dict) -> None:
+        logger.info("Wi-Fi event detected: %s", event)
+        rules = config_manager.get_rules()
+        matched_rules = rule_engine.evaluate(event, rules)
+
+        for rule in matched_rules:
+            logger.info("Rule matched: %s", rule.get("id"))
+            all_ok = True
+            for action in rule.get("actions", []):
+                result = action_executor.execute_action(
+                    action,
+                    event,
+                    dry_run=dry_run,
+                )
+                logger.info("Action result: %s", result)
+                if not result.get("ok"):
+                    all_ok = False
+            # Cooldown starts only after a fully successful run, so a
+            # transient failure (ClashMi down, 401) is retried on the
+            # next event instead of being swallowed by the cooldown.
+            if all_ok:
+                rule_engine.mark_run(rule["id"])
+
+    return handle_event
+
+
+def create_monitor(config_manager: ConfigManager, args: argparse.Namespace, handle_event) -> WifiMonitor:
+    monitor_config = config_manager.get_monitor_config()
+    use_native = bool(
+        monitor_config.get("use_native_notifications", True)
+        and not args.no_native
+        and sys.platform == "win32"
+    )
+
+    if use_native:
+        try:
+            from native_wifi_monitor import NativeWifiMonitor
+
+            return NativeWifiMonitor(
+                interval_seconds=monitor_config.get("interval_seconds", 1.0),
+                debounce_count=monitor_config.get("debounce_count", 2),
+                on_event=handle_event,
+            )
+        except Exception:
+            logger.exception("Failed to create native WLAN monitor; using polling")
+
+    return WifiMonitor(
+        interval_seconds=monitor_config.get("interval_seconds", 1.0),
+        debounce_count=monitor_config.get("debounce_count", 2),
+        on_event=handle_event,
+    )
+
+
+def run_gui(config_manager: ConfigManager, args: argparse.Namespace) -> int:
+    app = QApplication(sys.argv)
+    app.setApplicationName("WiFi-Looking")
+    app.setQuitOnLastWindowClosed(False)
+
+    stop_event = threading.Event()
+    action_executor = ActionExecutor()
+    rule_engine = RuleEngine()
+    handle_event = make_event_handler(
+        config_manager, rule_engine, action_executor, dry_run=args.dry_run
+    )
+
+    monitor = create_monitor(config_manager, args, handle_event)
+    monitor.start()
+
+    from main_window import MainWindow
+    from tray_app import TrayApp
+
+    main_window = MainWindow(config_manager, monitor)
+    main_window.show()
+
+    tray = TrayApp(
+        app=app,
+        config_manager=config_manager,
+        monitor=monitor,
+        main_window=main_window,
+    )
+    tray.show()
+
+    app.aboutToQuit.connect(monitor.stop)
+
+    def handle_signal(signum: int, frame: object) -> None:
+        logger.info("Received signal %s; stopping", signum)
+        stop_event.set()
+        monitor.stop()
+        app.quit()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    logger.info("WiFi-Looking GUI started")
+    return app.exec()
+
+
+def run_console(config_manager: ConfigManager, args: argparse.Namespace) -> int:
+    logger.info("Running in console mode")
+
+    stop_event = threading.Event()
+    action_executor = ActionExecutor()
+    rule_engine = RuleEngine()
+    handle_event = make_event_handler(
+        config_manager, rule_engine, action_executor, dry_run=args.dry_run
+    )
+
+    monitor = create_monitor(config_manager, args, handle_event)
+    monitor.start()
+
+    def handle_signal(signum: int, frame: object) -> None:
+        logger.info("Received signal %s; stopping", signum)
+        stop_event.set()
+        monitor.stop()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while not stop_event.is_set():
+        stop_event.wait(timeout=1.0)
+
+    logger.info("WiFi-Looking stopped")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    config_manager = load_config_manager(
+        Path(args.config) if args.config else data_dir() / "config.json"
+    )
+    setup_logging(config_manager)
+
+    if args.once:
+        return run_once(config_manager)
+
+    if args.no_tray:
+        return run_console(config_manager, args)
+
+    return run_gui(config_manager, args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
