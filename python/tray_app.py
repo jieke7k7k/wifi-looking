@@ -94,9 +94,25 @@ class TrayApp:
     def _reload_config(self) -> None:
         try:
             self.config_manager.reload()
-            self.show_message("WiFi-Looking", "配置已重新加载")
         except Exception as exc:
             self.show_message("配置加载失败", str(exc))
+            return
+
+        # The window must show the reloaded rules (otherwise a later
+        # edit would overwrite the file with stale in-memory data), and
+        # the monitor picks up hot-updatable timing parameters.
+        self.main_window.refresh_rules()
+        monitor_config = self.config_manager.get_monitor_config()
+        try:
+            self.monitor.interval_seconds = float(
+                monitor_config.get("interval_seconds", self.monitor.interval_seconds)
+            )
+            self.monitor.debounce_count = int(
+                monitor_config.get("debounce_count", self.monitor.debounce_count)
+            )
+        except (TypeError, ValueError):
+            pass
+        self.show_message("WiFi-Looking", "配置已重新加载")
 
     def _quit(self) -> None:
         self.monitor.stop()
