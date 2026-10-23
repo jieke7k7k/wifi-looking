@@ -19,7 +19,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          # Pinned to the locally verified combination (Python 3.12 +
+          # PySide6 6.12). Do not float to a newer Python until its
+          # PySide6 wheels are confirmed to exist and tests pass on it.
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -31,6 +34,13 @@ jobs:
         # assets/app.ico is a binary and is not kept in the repo snapshot;
         # it is regenerated from generate_icon.py (Pillow, from dev reqs).
         run: python python/generate_icon.py
+
+      - name: Verify test discovery is not empty
+        working-directory: python
+        run: |
+          $count = python -c "import unittest; print(unittest.defaultTestLoader.discover('tests').countTestCases())"
+          Write-Host "Discovered $count tests"
+          if ([int]$count -le 0) { throw "Test discovery found 0 tests; refusing a false-green build" }
 
       - name: Run tests
         working-directory: python
