@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -14,7 +16,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -27,17 +28,24 @@ from PySide6.QtWidgets import (
 )
 
 from clashmi import ClashMiClient, ClashMiError
+from ssid_utils import normalize_ssid, normalized_ssid_set
+from wifi_monitor import collect_ssid_candidates
 
 if TYPE_CHECKING:
     from config import ConfigManager
     from wifi_monitor import WifiMonitor
 
 
+logger = logging.getLogger(__name__)
+
+
 ACTION_CLOSE_CONNECTIONS = "clashmi.close_connections"
 ACTION_DISABLE_TUN = "clashmi.disable_tun"
+ACTION_KILL_PROCESS = "clashmi.kill_process"
 ACTION_LABELS = {
     ACTION_CLOSE_CONNECTIONS: "断开 ClashMi 连接",
     ACTION_DISABLE_TUN: "关闭 ClashMi TUN",
+    ACTION_KILL_PROCESS: "关闭 ClashMi（结束进程）",
 }
 LABEL_TO_ACTION = {v: k for k, v in ACTION_LABELS.items()}
 
@@ -85,9 +93,64 @@ def _ssids_of(value: Any) -> List[str]:
     return []
 
 
+class SsidComboBox(QComboBox):
+    """Editable SSID combo with a QLineEdit-style text() / setText().
+
+    Candidates (current / scanned / saved networks) are offered in the
+    dropdown so users pick instead of typing; anything can still be
+    typed manually. The text accessors keep the rule form code — and
+    its tests — identical to the old plain line edits.
+    """
+
+    def text(self) -> str:
+        return self.currentText()
+
+    def setText(self, text: str) -> None:
+        self.setEditText(text)
+
+
+def ssid_covered_by_rules(ssid: Optional[str], rules: List[Dict[str, Any]]) -> bool:
+    """True if some enabled rule lists ``ssid`` (or ``*``) as a source.
+
+    Comparison uses the shared SSID normalization (review bug 6):
+    the guard must agree with the rule engine, which matches
+    case-insensitively and ignores surrounding whitespace.
+    """
+    if not ssid:
+        return False
+    wanted = normalize_ssid(ssid)
+    for rule in rules:
+        if not isinstance(rule, dict) or not rule.get("enabled", True):
+            continue
+        when = rule.get("when", {})
+        if not isinstance(when, dict):
+            continue
+        sources = _ssids_of(when.get("previous_ssid"))
+        if "*" in sources:
+            return True
+        if wanted and wanted in normalized_ssid_set(when.get("previous_ssid")):
+            return True
+    return False
+
+
+def startup_guard_should_warn(
+    ssid: Optional[str],
+    rules: List[Dict[str, Any]],
+    clashmi_active: bool,
+) -> bool:
+    """Startup guard decision: warn only when connected to a network no
+    enabled rule covers while ClashMi is on. Not connected → silent;
+    ClashMi off → nothing to warn about."""
+    if not ssid or not clashmi_active:
+        return False
+    return not ssid_covered_by_rules(ssid, rules)
+
+
 class MainWindow(QMainWindow):
     _clashmi_auto_result = Signal(str)
     _clashmi_manual_result = Signal(dict)
+    _ssid_candidates_ready = Signal(list)
+    _startup_guard_result = Signal(object)
 
     def __init__(
         self,
@@ -101,8 +164,12 @@ class MainWindow(QMainWindow):
         self._updating_table = False
         self._tray_icon = None
         self._rules_by_id: Dict[str, Dict[str, Any]] = {}
+        self._startup_guard_started = False
+        self._candidates_refreshed_for_state = False
 
-        self.setWindowTitle("WiFi-Looking")
+        from config import APP_VERSION
+
+        self.setWindowTitle(f"WiFi-Looking v{APP_VERSION}")
         self.setWindowIcon(self.create_icon())
         self.resize(880, 540)
 
@@ -130,16 +197,21 @@ class MainWindow(QMainWindow):
         self.event_combo.currentTextChanged.connect(self._on_event_changed)
 
         source_label = QLabel("来源 SSID")
-        self.source_edit = QLineEdit()
-        self.source_edit.setPlaceholderText("如：Xms, Xms 5G（多个用逗号分隔）")
+        self.source_edit = SsidComboBox()
+        self.source_edit.setEditable(True)
+        self.source_edit.lineEdit().setPlaceholderText("下拉选择或手动输入（多个用逗号分隔）")
 
         target_label = QLabel("目标 SSID")
-        self.target_edit = QLineEdit()
-        self.target_edit.setPlaceholderText("如：Other 或 *（任意）")
+        self.target_edit = SsidComboBox()
+        self.target_edit.setEditable(True)
+        self.target_edit.lineEdit().setPlaceholderText("下拉选择，或 *（任意）")
 
         action_label = QLabel("动作")
         self.action_combo = QComboBox()
         self.action_combo.addItems(list(ACTION_LABELS.values()))
+        # New rules default to turning ClashMi off (v0.3.0): that is
+        # the action the one-click button uses too.
+        self.action_combo.setCurrentText(ACTION_LABELS[ACTION_KILL_PROCESS])
 
         cooldown_label = QLabel("冷却(秒)")
         self.cooldown_spin = QSpinBox()
@@ -148,6 +220,12 @@ class MainWindow(QMainWindow):
 
         add_button = QPushButton("添加规则")
         add_button.clicked.connect(self._add_rule)
+
+        quick_add_button = QPushButton("一键添加当前 Wi-Fi")
+        quick_add_button.clicked.connect(self._quick_add_current_wifi)
+
+        refresh_candidates_button = QPushButton("刷新 Wi-Fi 列表")
+        refresh_candidates_button.clicked.connect(self._refresh_ssid_candidates)
 
         update_button = QPushButton("更新选中规则")
         update_button.clicked.connect(self._update_selected_rule)
@@ -175,6 +253,8 @@ class MainWindow(QMainWindow):
         form_layout2.addWidget(update_button)
         form_layout2.addWidget(delete_button)
         form_layout2.addWidget(test_button)
+        form_layout2.addWidget(quick_add_button)
+        form_layout2.addWidget(refresh_candidates_button)
         form_layout2.addStretch(1)
 
         root_layout = QVBoxLayout()
@@ -198,7 +278,10 @@ class MainWindow(QMainWindow):
 
         self._clashmi_auto_result.connect(self.clashmi_label.setText)
         self._clashmi_manual_result.connect(self._on_manual_test_result)
+        self._ssid_candidates_ready.connect(self._apply_ssid_candidates)
+        self._startup_guard_result.connect(self._on_startup_guard_result)
         QTimer.singleShot(600, self._auto_test_clashmi)
+        self._refresh_ssid_candidates()
 
     # -- tray integration -------------------------------------------------
 
@@ -243,6 +326,13 @@ class MainWindow(QMainWindow):
         else:
             ssid = state.ssid or "未连接"
             self.status_label.setText(f"当前 Wi-Fi：{ssid}")
+            if not self._candidates_refreshed_for_state:
+                # The candidate collection at startup usually races
+                # the monitor's first read, so the current network —
+                # the most important candidate — was missing (review
+                # bug 9). Re-collect once the first state is known.
+                self._candidates_refreshed_for_state = True
+                self._refresh_ssid_candidates()
 
     def _auto_test_clashmi(self) -> None:
         def work() -> None:
@@ -292,6 +382,212 @@ class MainWindow(QMainWindow):
             "ClashMi 测试成功",
             f"External Controller：{result['base_url']}\n当前活动连接：{result['count']}",
         )
+
+    # -- SSID candidates ----------------------------------------------------
+
+    def _refresh_ssid_candidates(self) -> None:
+        """Load dropdown candidates (current / scanned / saved SSIDs).
+
+        netsh calls run on a worker thread and may take a moment; any
+        failure degrades to an empty dropdown — manual input always
+        works, so the editor never blocks on this.
+        """
+
+        def work() -> None:
+            current = self._current_ssid()
+            try:
+                items = collect_ssid_candidates(current)
+            except Exception:
+                logger.debug("Collecting SSID candidates failed", exc_info=True)
+                items = []
+            self._ssid_candidates_ready.emit(items)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _apply_ssid_candidates(self, items: List[str]) -> None:
+        cleaned = [str(item) for item in items]
+        for combo, extra in ((self.source_edit, []), (self.target_edit, ["*"])):
+            # "*" is a fixed candidate for the target field (review
+            # optimization 4): users should pick it, not type it and
+            # risk a full-width ＊ that never matches.
+            values = extra + [item for item in cleaned if item not in extra]
+            text = combo.currentText()
+            combo.clear()
+            combo.addItems(values)
+            combo.setEditText(text)
+
+    def _current_ssid(self) -> Optional[str]:
+        state = getattr(self.monitor, "current_state", None)
+        if state is not None and getattr(state, "connected", False):
+            ssid = getattr(state, "ssid", None)
+            if ssid:
+                return str(ssid)
+        return None
+
+    # -- one-click rules ----------------------------------------------------
+
+    def _quick_add_current_wifi(self) -> None:
+        ssid = self._current_ssid()
+        if not ssid:
+            # Distinguish "state not read yet" from "really not
+            # connected" (review bug 22) — the old single message sent
+            # users off to debug a healthy network.
+            if getattr(self.monitor, "current_state", None) is None:
+                message = "Wi-Fi 状态尚未读取完成，请稍等几秒再试"
+            else:
+                message = "当前未连接 Wi-Fi，无法一键添加规则"
+            QMessageBox.information(self, "WiFi-Looking", message)
+            return
+
+        added, skipped = self.add_rules_for_current_ssid(
+            ssid, cooldown=self.cooldown_spin.value()
+        )
+        if added and skipped:
+            message = f"已为「{ssid}」添加 {added} 条规则，另有 {skipped} 条已存在、已跳过"
+        elif added:
+            message = f"已为「{ssid}」添加 {added} 条规则（断开时 + 切换走时关闭 ClashMi）"
+        else:
+            message = f"「{ssid}」的断开/切换规则已存在，未重复添加"
+        QMessageBox.information(self, "WiFi-Looking", message)
+
+    def add_rules_for_current_ssid(
+        self,
+        ssid: str,
+        cooldown: Optional[int] = None,
+        action_type: str = ACTION_KILL_PROCESS,
+    ) -> "tuple[int, int]":
+        """Create the one-click rule pair for ``ssid``.
+
+        Generates an on_disconnect and an on_switch (to ``*``) rule,
+        both enabled, both running ``action_type`` (default
+        clashmi.kill_process). ``cooldown`` is an explicit parameter
+        (review optimization 6) so the logic is testable without the
+        form; None falls back to the form's spin value. Rules whose
+        signature already exists are skipped. Returns (added, skipped).
+        """
+        if cooldown is None:
+            cooldown = self.cooldown_spin.value()
+        forms = [
+            {
+                "event_type": EVENT_DISCONNECT,
+                "sources": [ssid],
+                "targets": [],
+                "when": {"event": EVENT_DISCONNECT, "previous_ssid": ssid},
+                "action_type": action_type,
+            },
+            {
+                "event_type": EVENT_SWITCH,
+                "sources": [ssid],
+                "targets": ["*"],
+                "when": {
+                    "event": EVENT_SWITCH,
+                    "previous_ssid": ssid,
+                    "current_ssid": "*",
+                },
+                "action_type": action_type,
+            },
+        ]
+
+        rules = self.config_manager.get_rules()
+        added = 0
+        skipped = 0
+        for form in forms:
+            # Coverage, not exact equality (review bug 10): a rule
+            # that already runs kill_process on this event/SSID pair —
+            # even as its second action — already covers what the
+            # one-click pair would do, so adding another kill rule
+            # would be redundant. Manual "add rule" keeps the exact
+            # full-sequence signature check in _signature.
+            if any(
+                self._rule_covers_action(rule, form["when"], action_type)
+                for rule in rules
+            ):
+                skipped += 1
+                continue
+            rules.append(
+                {
+                    "id": self._make_rule_id(form, rules),
+                    "enabled": True,
+                    "description": self._describe(form),
+                    "when": form["when"],
+                    "actions": [{"type": action_type}],
+                    "cooldown_seconds": cooldown,
+                }
+            )
+            added += 1
+
+        if added:
+            self.config_manager.set_rules(rules)
+            self._save_rules()
+            self._refresh_table()
+        return added, skipped
+
+    # -- startup guard --------------------------------------------------------
+
+    def start_startup_guard(self, delay_ms: int = 4000) -> None:
+        """Schedule the one-shot startup guard check (R4).
+
+        Called once from run_gui after the window and tray exist. The
+        check itself runs a few seconds later, after the monitor has
+        established its baseline.
+        """
+        if self._startup_guard_started:
+            return
+        self._startup_guard_started = True
+        QTimer.singleShot(delay_ms, self._run_startup_guard_check)
+
+    def _run_startup_guard_check(self) -> None:
+        # The ClashMi probe is a network request: worker thread, with
+        # the verdict delivered back to the GUI thread via signal (the
+        # same pattern as the automatic ClashMi test).
+        def work() -> None:
+            warn_ssid: Optional[str] = None
+            try:
+                # Wait (bounded) for the monitor's first state instead
+                # of sampling once at a fixed delay (review bug 7):
+                # a slow first netsh read used to make the guard
+                # silently never happen.
+                deadline = time.monotonic() + 15.0
+                ssid = self._current_ssid()
+                while ssid is None and time.monotonic() < deadline:
+                    if getattr(self.monitor, "current_state", None) is not None:
+                        break  # state known and not connected: no wait needed
+                    time.sleep(0.25)
+                    ssid = self._current_ssid()
+                if ssid:
+                    try:
+                        active = ClashMiClient().is_active()
+                    except Exception:
+                        active = False
+                    if startup_guard_should_warn(
+                        ssid, self.config_manager.get_rules(), active
+                    ):
+                        warn_ssid = ssid
+            except Exception:
+                logger.exception("Startup guard check failed")
+            self._startup_guard_result.emit(warn_ssid)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_startup_guard_result(self, ssid: Optional[str]) -> None:
+        if not ssid:
+            return
+        message = (
+            f"当前 Wi-Fi「{ssid}」不在任何规则的来源名单中，"
+            "但 ClashMi 仍在开启状态。\n"
+            "如果这是不信任的网络，请确认是否需要关闭 ClashMi。"
+        )
+        logger.warning("Startup guard: connected to uncovered Wi-Fi %r with ClashMi on", ssid)
+        # Bring the window forward first (review bug 8): a modal box
+        # parented to a tray-hidden window could open underneath other
+        # windows with no taskbar flash. The tray bubble stays as the
+        # fallback if the dialog is still missed.
+        self.show_from_tray()
+        if self._tray_icon is not None:
+            self._tray_icon.showMessage(
+                "WiFi-Looking", message, self.windowIcon(), 4000
+            )
+        QMessageBox.warning(self, "WiFi-Looking 提醒", message)
 
     # -- table ------------------------------------------------------------
 
@@ -377,7 +673,19 @@ class MainWindow(QMainWindow):
             return
         rule = self._find_rule(item.data(Qt.ItemDataRole.UserRole))
         if rule is not None:
-            rule["enabled"] = item.checkState() == Qt.CheckState.Checked
+            # Replace, don't mutate (pre-check item 6): the monitor
+            # thread may be evaluating this very dict while the GUI
+            # edits it. A fresh dict is swapped into the list and the
+            # by-id index together.
+            new_rule = dict(rule)
+            new_rule["enabled"] = item.checkState() == Qt.CheckState.Checked
+            rules = self.config_manager.get_rules()
+            for index, existing in enumerate(rules):
+                if existing is rule or existing.get("id") == rule.get("id"):
+                    rules[index] = new_rule
+                    break
+            self._rules_by_id[str(new_rule.get("id"))] = new_rule
+            self.config_manager.set_rules(rules)
             self._save_rules()
 
     # -- rule editing -----------------------------------------------------
@@ -415,18 +723,67 @@ class MainWindow(QMainWindow):
             "event_type": event_type,
         }
 
-    def _signature(self, when: Dict[str, Any], action_type: str) -> tuple:
-        # SSID order must not affect duplicate detection: the same set
-        # typed in a different order is the same rule.
+    @staticmethod
+    def _actions_signature(actions: Any) -> tuple:
+        """Normalized full action sequence for a rule/form.
+
+        Accepts a single action type (str), a one-item form value or a
+        rule's actions list. Duplicate detection must consider *all*
+        actions, not just the first (review bug 10): a rule that runs
+        kill_process as its second action is still a duplicate of the
+        one-click pair.
+        """
+        if isinstance(actions, str):
+            return (actions,)
+        if isinstance(actions, list):
+            return tuple(
+                str(action.get("type", ""))
+                for action in actions
+                if isinstance(action, dict)
+            )
+        return ()
+
+    def _signature(self, when: Dict[str, Any], action_type: Any) -> tuple:
+        # SSID order and case must not affect duplicate detection: the
+        # same set typed in a different order (or case) is the same
+        # rule. SSIDs are compared normalized, actions as the full
+        # normalized sequence.
         return (
             when.get("event"),
-            tuple(sorted(_ssids_of(when.get("previous_ssid")))),
-            tuple(sorted(_ssids_of(when.get("current_ssid")))),
-            action_type,
+            tuple(sorted(normalized_ssid_set(when.get("previous_ssid")))),
+            tuple(sorted(normalized_ssid_set(when.get("current_ssid")))),
+            self._actions_signature(action_type),
         )
 
     def _rule_signature(self, rule: Dict[str, Any]) -> tuple:
-        return self._signature(rule.get("when", {}), self._first_action_type(rule.get("actions", [])))
+        return self._signature(rule.get("when", {}), rule.get("actions", []))
+
+    @staticmethod
+    def _rule_covers_action(
+        rule: Dict[str, Any], when: Dict[str, Any], action_type: str
+    ) -> bool:
+        """True if ``rule`` already performs ``action_type`` for the
+        same event and SSID pair (normalized). Used by one-click add
+        so a kill already present as a later action is not duplicated."""
+        if not isinstance(rule, dict):
+            return False
+        rule_when = rule.get("when", {})
+        if not isinstance(rule_when, dict):
+            return False
+        if rule_when.get("event") != when.get("event"):
+            return False
+        if normalized_ssid_set(rule_when.get("previous_ssid")) != normalized_ssid_set(
+            when.get("previous_ssid")
+        ):
+            return False
+        if normalized_ssid_set(rule_when.get("current_ssid")) != normalized_ssid_set(
+            when.get("current_ssid")
+        ):
+            return False
+        return any(
+            isinstance(action, dict) and action.get("type") == action_type
+            for action in rule.get("actions", [])
+        )
 
     def _describe(self, form: Dict[str, Any]) -> str:
         action_text = ACTION_LABELS[form["action_type"]]
@@ -479,8 +836,6 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "WiFi-Looking", "修改后会与另一条规则重复")
                 return
 
-        rule["description"] = self._describe(form)
-        rule["when"] = form["when"]
         # The form edits only the first action. Any additional actions
         # (from a hand-edited config) must survive the update instead
         # of being silently dropped and written back to disk.
@@ -488,10 +843,26 @@ class MainWindow(QMainWindow):
             action for action in rule.get("actions", []) if isinstance(action, dict)
         ]
         extras = [dict(action) for action in existing_actions[1:]]
-        rule["actions"] = [{"type": form["action_type"]}, *extras]
-        rule["cooldown_seconds"] = self.cooldown_spin.value()
-
-        self.config_manager.set_rules(self.config_manager.get_rules())
+        # Never write the same action twice (review bug 20): if an
+        # extra action already has the form's type, drop the extra —
+        # run_command-style actions are not idempotent.
+        extras = [
+            action for action in extras if action.get("type") != form["action_type"]
+        ]
+        # Replace, don't mutate (pre-check item 6): see
+        # _table_item_changed for why the dict is swapped, not edited.
+        new_rule = dict(rule)
+        new_rule["description"] = self._describe(form)
+        new_rule["when"] = form["when"]
+        new_rule["actions"] = [{"type": form["action_type"]}, *extras]
+        new_rule["cooldown_seconds"] = self.cooldown_spin.value()
+        rules = self.config_manager.get_rules()
+        for index, existing in enumerate(rules):
+            if existing is rule or existing.get("id") == rule.get("id"):
+                rules[index] = new_rule
+                break
+        self._rules_by_id[str(new_rule.get("id"))] = new_rule
+        self.config_manager.set_rules(rules)
         self._save_rules()
         self._refresh_table()
 
@@ -555,16 +926,19 @@ class MainWindow(QMainWindow):
             return QIcon(str(ico_path))
 
         # Fallback (dev runs without assets): simple line-style fan.
+        # Color matches generate_icon.py's teal #0E7C66 (review
+        # optimization 14) so the dev-run icon and the shipped icon
+        # are the same color.
         pixmap = QPixmap(64, 64)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(25, 135, 84), 4)
+        pen = QPen(QColor(14, 124, 102), 4)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
         painter.drawArc(14, 8, 36, 36, 30 * 16, 120 * 16)
         painter.drawArc(22, 16, 20, 20, 30 * 16, 120 * 16)
-        painter.setBrush(QColor(25, 135, 84))
+        painter.setBrush(QColor(14, 124, 102))
         painter.drawEllipse(29, 34, 6, 6)
         painter.end()
         return QIcon(pixmap)
