@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import signal
 import sys
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 
 from action_executor import ActionExecutor
-from config import ConfigError, ConfigManager
+from config import APP_VERSION, ConfigError, ConfigManager
 from rule_engine import RuleEngine
 from wifi_monitor import WifiMonitor
 
@@ -79,6 +80,12 @@ def load_config_manager(config_path: Path) -> ConfigManager:
     manager = ConfigManager(config_path)
     try:
         manager.load()
+        # Per-rule problems no longer reach here (ConfigManager drops
+        # bad rules with warnings, review bug 11); only whole-file
+        # failures (unparseable JSON, structural errors) fall through
+        # to the .corrupt recovery below.
+        for warning in manager.last_validation_warnings:
+            logger.warning("Config rule dropped during load: %s", warning)
         return manager
     except (ConfigError, OSError) as exc:
         logger.warning("Config %s unusable (%s); starting from defaults", config_path, exc)
@@ -123,6 +130,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Read one Wi-Fi state and exit",
     )
+    parser.add_argument(
+        "--minimized",
+        action="store_true",
+        help="Start hidden in the tray (used by the autostart entry)",
+    )
+    parser.add_argument(
+        "--reset-config",
+        action="store_true",
+        help="Reset config.json to the shipped defaults and exit",
+    )
     return parser.parse_args(argv)
 
 
@@ -137,8 +154,14 @@ def setup_logging(config_manager: ConfigManager) -> None:
         log_path = config_manager.config_path.resolve().parent / log_path
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Rotating logs (pre-check item 4): the old unbounded FileHandler
+    # let a failing monitor grow app.log without limit; 1 MB x 5
+    # files bounds it at ~5 MB. Failure logging itself is throttled
+    # separately in the monitor loop (review bug 24).
     handlers: list[logging.Handler] = [
-        logging.FileHandler(log_path, encoding="utf-8")
+        RotatingFileHandler(
+            log_path, encoding="utf-8", maxBytes=1024 * 1024, backupCount=5
+        )
     ]
     # In the --noconsole packaged build sys.stdout is None; attaching a
     # StreamHandler then makes every log call raise inside the handler.
@@ -182,8 +205,14 @@ def make_event_handler(
     rule_engine: RuleEngine,
     action_executor: ActionExecutor,
     dry_run: bool = False,
+    on_action_failure=None,
 ) -> Callable[[dict], None]:
-    """Build the monitor's event handler (shared by GUI and console mode)."""
+    """Build the monitor's event handler (shared by GUI and console mode).
+
+    ``on_action_failure`` (GUI mode only) is called with a failed
+    action result so the app can surface it — e.g. an access-denied
+    kill must not stay a log-only whisper (review bug 16).
+    """
 
     def handle_event(event: dict) -> None:
         logger.info("Wi-Fi event detected: %s", event)
@@ -202,6 +231,11 @@ def make_event_handler(
                 logger.info("Action result: %s", result)
                 if not result.get("ok"):
                     all_ok = False
+                    if on_action_failure is not None:
+                        try:
+                            on_action_failure(action, result)
+                        except Exception:
+                            logger.debug("Failure callback failed", exc_info=True)
             # Cooldown starts only after a fully successful run, so a
             # transient failure (ClashMi down, 401) is retried on the
             # next event instead of being swallowed by the cooldown.
@@ -239,15 +273,57 @@ def create_monitor(config_manager: ConfigManager, args: argparse.Namespace, hand
 
 
 def run_gui(config_manager: ConfigManager, args: argparse.Namespace) -> int:
+    # HiDPI (pre-check item 10): let Qt use high-resolution pixmaps
+    # for tray/window icons instead of upscaling a 16px frame.
+    from PySide6.QtCore import QCoreApplication, Qt
+
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
     app = QApplication(sys.argv)
     app.setApplicationName("WiFi-Looking")
     app.setQuitOnLastWindowClosed(False)
 
+    # Single-instance guard (U1): acquire BEFORE any monitor/tray is
+    # created. A second launch only wakes the running instance and
+    # exits — it must never start a second monitor thread or tray icon.
+    from single_instance import SingleInstance
+
+    guard = SingleInstance(config_manager.config_path.parent / "WiFi-Looking.lock")
+    if not guard.try_acquire():
+        if guard.notify_existing():
+            logger.info("Another WiFi-Looking instance is running; asked it to show its window")
+        else:
+            logger.warning("Another instance is running but did not answer the wake-up message")
+        return 0
+    app._single_instance_guard = guard  # keep the guard alive for the app lifetime
+    app.aboutToQuit.connect(guard.release)
+
     stop_event = threading.Event()
     action_executor = ActionExecutor()
     rule_engine = RuleEngine()
+    # Late-bound failure notifier: the tray does not exist yet when
+    # the handler is built, so the callback reads the holder at call
+    # time (review bug 16: access-denied kills get a tray prompt).
+    failure_notifier: dict = {}
+
+    def _on_action_failure(action, result) -> None:
+        if action.get("type") != "clashmi.kill_process":
+            return
+        errors = " ".join(str(f.get("error", "")) for f in result.get("failed", []))
+        if not any(token in errors.lower() for token in ("access", "denied", "拒绝访问")):
+            return
+        notify = failure_notifier.get("notify")
+        if notify is not None:
+            notify(
+                "ClashMi 无法关闭（拒绝访问）：若 ClashMi 以管理员身份运行，"
+                "请以管理员身份运行 WiFi-Looking 后再试。"
+            )
+
     handle_event = make_event_handler(
-        config_manager, rule_engine, action_executor, dry_run=args.dry_run
+        config_manager,
+        rule_engine,
+        action_executor,
+        dry_run=args.dry_run,
+        on_action_failure=_on_action_failure,
     )
 
     monitor = create_monitor(config_manager, args, handle_event)
@@ -257,7 +333,13 @@ def run_gui(config_manager: ConfigManager, args: argparse.Namespace) -> int:
     from tray_app import TrayApp
 
     main_window = MainWindow(config_manager, monitor)
-    main_window.show()
+    if args.minimized:
+        # Autostart launches straight to the tray; popping the main
+        # window on every logon trains users to disable autostart
+        # (review bug 26).
+        main_window.hide()
+    else:
+        main_window.show()
 
     tray = TrayApp(
         app=app,
@@ -266,6 +348,17 @@ def run_gui(config_manager: ConfigManager, args: argparse.Namespace) -> int:
         main_window=main_window,
     )
     tray.show()
+    failure_notifier["notify"] = lambda message: tray.show_message(
+        "WiFi-Looking 提醒", message
+    )
+
+    # A second launch wakes this instance (U1): bring the window
+    # forward instead of starting a second monitor/tray.
+    guard.show_requested.connect(main_window.show_from_tray)
+
+    # One-shot startup guard (R4): if the baseline network is not
+    # covered by any rule while ClashMi is on, remind — never auto-close.
+    main_window.start_startup_guard()
 
     app.aboutToQuit.connect(monitor.stop)
 
@@ -312,10 +405,42 @@ def run_console(config_manager: ConfigManager, args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if args.reset_config:
+        # "Restore factory defaults" escape hatch (review bug 27):
+        # overwrite config.json with the shipped defaults.
+        from config import DEFAULT_CONFIG
+        import copy as _copy
+        import json as _json
+
+        target = Path(args.config) if args.config else data_dir() / "config.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            _json.dumps(_copy.deepcopy(DEFAULT_CONFIG), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Config reset to defaults: {target}")
+        return 0
+
+    # Migrate a config left behind in the %APPDATA% fallback before
+    # loading from the primary data dir (review bug 28).
+    primary_dir = data_dir()
+    if not (primary_dir / "config.json").exists():
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            legacy = Path(appdata) / "WiFi-Looking" / "config.json"
+            if legacy.exists() and legacy.resolve() != (primary_dir / "config.json").resolve():
+                try:
+                    (primary_dir / "config.json").write_bytes(legacy.read_bytes())
+                    logger.warning("Migrated config from fallback dir %s", legacy.parent)
+                except OSError:
+                    logger.warning("Could not migrate fallback config", exc_info=True)
+
     config_manager = load_config_manager(
-        Path(args.config) if args.config else data_dir() / "config.json"
+        Path(args.config) if args.config else primary_dir / "config.json"
     )
     setup_logging(config_manager)
+    logger.info("WiFi-Looking version %s starting", APP_VERSION)
 
     if args.once:
         return run_once(config_manager)
