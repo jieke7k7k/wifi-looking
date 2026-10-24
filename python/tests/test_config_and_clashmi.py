@@ -21,7 +21,8 @@ class ConfigTests(unittest.TestCase):
             path.write_text(json.dumps(DEFAULT_CONFIG), encoding="utf-8")
             manager = ConfigManager(path)
             loaded = manager.load()
-            self.assertEqual(len(loaded["rules"]), 2)
+            # v0.3.0: the default config ships no preset rules.
+            self.assertEqual(len(loaded["rules"]), 0)
 
     def test_missing_config_is_created_from_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
