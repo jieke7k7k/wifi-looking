@@ -122,14 +122,22 @@ class SingleInstance(QObject):
     def _on_new_connection(self) -> None:
         if self._server is None:
             return
-        socket = self._server.nextPendingConnection()
-        if socket is None:
-            return
-        if socket.waitForReadyRead(1000):
-            payload = bytes(socket.readAll().data()).decode("utf-8", errors="ignore")
-            if "show" in payload:
-                self.show_requested.emit()
-        socket.disconnectFromServer()
+        # A connection itself is the wake request. Do NOT block on
+        # waitForReadyRead here: on Windows the client may disconnect
+        # before the server reads, which drops the payload and loses
+        # the wake entirely (CI failure: woken stayed [] even though
+        # notify_existing() had returned True). Emit on connect and
+        # keep each socket alive until it disconnects.
+        pending = []
+        while True:
+            socket = self._server.nextPendingConnection()
+            if socket is None:
+                break
+            socket.setParent(self)
+            socket.disconnected.connect(socket.deleteLater)
+            pending.append(socket)
+        if pending:
+            self.show_requested.emit()
 
     # -- second instance --------------------------------------------------
 
@@ -142,6 +150,13 @@ class SingleInstance(QObject):
             return False
         socket.write(b"show\n")
         socket.waitForBytesWritten(timeout_ms)
+        # Grace period before closing: on Windows an instantly closed
+        # pipe can vanish before the server accepts the connection.
+        # The second instance exits right after this anyway, so a
+        # short delay here is imperceptible.
+        import time
+
+        time.sleep(0.1)
         socket.disconnectFromServer()
         return True
 
