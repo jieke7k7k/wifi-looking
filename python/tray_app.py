@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
@@ -12,6 +14,10 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
     from config import ConfigManager
     from wifi_monitor import WifiMonitor
+
+
+class _TraySignals(QObject):
+    clashmi_result = Signal(object)
 
 
 class TrayApp:
@@ -56,6 +62,8 @@ class TrayApp:
 
         self.icon.setContextMenu(self.menu)
         self.main_window.set_tray_icon(self.icon)
+        self._signals = _TraySignals()
+        self._signals.clashmi_result.connect(self._on_test_result)
 
     def show(self) -> None:
         self.icon.show()
@@ -79,16 +87,29 @@ class TrayApp:
         self.show_message("WiFi-Looking", message)
 
     def _test_clashmi(self) -> None:
-        try:
-            client = ClashMiClient()
-            count = client.connection_count()
-        except ClashMiError as exc:
-            self.show_message("ClashMi 测试失败", str(exc))
-            return
+        # Probe on a worker thread (review bug 21): discovery + the
+        # request (with its 401 retry) can block for seconds, and doing
+        # it on the GUI thread froze the UI and got it flagged
+        # "not responding". The verdict returns via a Qt signal.
+        def work() -> None:
+            try:
+                client = ClashMiClient()
+                count = client.connection_count()
+                self._signals.clashmi_result.emit(
+                    {"ok": True, "count": count, "base_url": client.settings.base_url}
+                )
+            except ClashMiError as exc:
+                self._signals.clashmi_result.emit({"ok": False, "error": str(exc)})
 
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_test_result(self, result) -> None:
+        if not result.get("ok"):
+            self.show_message("ClashMi 测试失败", str(result.get("error", "未知错误")))
+            return
         self.show_message(
             "ClashMi 测试成功",
-            f"活动连接：{count}  地址：{client.settings.base_url}",
+            f"活动连接：{result['count']}  地址：{result['base_url']}",
         )
 
     def _reload_config(self) -> None:
