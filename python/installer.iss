@@ -31,7 +31,10 @@ VersionInfoVersion={#MyAppVersion}
 VersionInfoDescription={#MyAppName} installer
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; Bundled translation file: the CI runner's Inno Setup install does not
+; ship ChineseSimplified.isl, so compiler:Languages\... fails there.
+; This is Inno Setup's own official Simplified Chinese messages file.
+Name: "chinesesimplified"; MessagesFile: "installer-languages\ChineseSimplified.isl"
 DefaultLanguage=chinesesimplified
 
 [Tasks]
