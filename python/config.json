@@ -8,37 +8,5 @@
     "level": "INFO",
     "file": "logs/app.log"
   },
-  "rules": [
-    {
-      "id": "xms-disconnect-close-clash",
-      "enabled": true,
-      "description": "从 Xms 断开时断开 ClashMi 连接",
-      "when": {
-        "event": "on_disconnect",
-        "previous_ssid": ["Xms", "Xms 5G"]
-      },
-      "actions": [
-        {
-          "type": "clashmi.close_connections"
-        }
-      ],
-      "cooldown_seconds": 10
-    },
-    {
-      "id": "xms-to-other-close-clash",
-      "enabled": true,
-      "description": "从 Xms 切换到其他 Wi-Fi 时断开 ClashMi 连接",
-      "when": {
-        "event": "on_switch",
-        "previous_ssid": ["Xms", "Xms 5G"],
-        "current_ssid": "*"
-      },
-      "actions": [
-        {
-          "type": "clashmi.close_connections"
-        }
-      ],
-      "cooldown_seconds": 10
-    }
-  ]
+  "rules": []
 }
