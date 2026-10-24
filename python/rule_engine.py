@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Iterable, List
 
+from ssid_utils import ssid_matches
+
 
 class RuleEngine:
     """Matches Wi-Fi events against configured rules with cooldown."""
@@ -23,9 +25,16 @@ class RuleEngine:
         running yet) does not suppress the retry a few seconds later.
         """
         ready: List[Dict[str, Any]] = []
-        now = time.time()
+        # Monotonic clock for cooldowns (pre-check item 5): wall-clock
+        # time jumps on sleep/wake or a manual clock change, which
+        # used to end a cooldown early (double trigger) or stretch it
+        # for hours. monotonic() only ever moves forward.
+        now = time.monotonic()
 
-        for rule in rules:
+        # Snapshot the list (pre-check item 6): the GUI thread edits
+        # rules while the monitor thread evaluates them; iterating a
+        # copy means an edit can never change the list mid-iteration.
+        for rule in list(rules):
             if not self._matches_rule(rule, event):
                 continue
 
@@ -40,7 +49,7 @@ class RuleEngine:
 
     def mark_run(self, rule_id: str) -> None:
         """Record that a rule's actions ran successfully (starts cooldown)."""
-        self._last_run[rule_id] = time.time()
+        self._last_run[rule_id] = time.monotonic()
 
     def _matches_rule(
         self,
@@ -74,23 +83,7 @@ class RuleEngine:
         patterns: object,
         actual_ssid: object,
     ) -> bool:
-        if patterns is None:
-            return True
-
-        if not isinstance(patterns, list):
-            patterns = [patterns]
-
-        for pattern in patterns:
-            if pattern == "*":
-                return True
-
-            if pattern in {"", None}:
-                if actual_ssid in {"", None}:
-                    return True
-                continue
-
-            if isinstance(pattern, str) and isinstance(actual_ssid, str):
-                if pattern.strip().lower() == actual_ssid.strip().lower():
-                    return True
-
-        return False
+        # Shared normalization (ssid_utils) so the engine, the startup
+        # guard and duplicate detection can never disagree about
+        # whether two SSIDs are "the same" (review bug 6 / opt 2).
+        return ssid_matches(patterns, actual_ssid)
