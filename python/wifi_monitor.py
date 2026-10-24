@@ -67,6 +67,10 @@ class WifiMonitor(threading.Thread):
         # confirmed state. ``None`` until the first stable reading, which only
         # establishes the baseline and never emits an event.
         self._confirmed_key: Optional[str] = None
+        # Consecutive read_state() failures, for log throttling: a dead
+        # wireless service must not flood app.log once per second
+        # (review bug 24).
+        self._consecutive_read_failures = 0
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -108,6 +112,10 @@ class WifiMonitor(threading.Thread):
 
     def pause(self) -> None:
         self._paused = True
+        # Clear the event so wait() in the run loop actually blocks
+        # while paused; resume()/stop() set it again (review bug 25 —
+        # previously a pause after a resume busy-looped a full core).
+        self._pause_event.clear()
 
     def resume(self) -> None:
         self._paused = False
@@ -129,8 +137,22 @@ class WifiMonitor(threading.Thread):
             try:
                 state = self.read_state()
                 self._process_state(state)
+                self._consecutive_read_failures = 0
             except Exception:
-                logger.exception("WifiMonitor loop failed")
+                self._consecutive_read_failures += 1
+                failures = self._consecutive_read_failures
+                if failures == 1:
+                    logger.exception("WifiMonitor loop failed")
+                elif failures % 30 == 0:
+                    logger.warning(
+                        "WifiMonitor state read still failing (%s consecutive attempts)",
+                        failures,
+                    )
+                # Back off instead of spinning at the poll interval
+                # while the wireless service is down (review bug 24).
+                backoff = min(2 ** min(failures, 3), 8)
+                self._stop_event.wait(timeout=backoff)
+                continue
 
             self._stop_event.wait(timeout=self.interval_seconds)
 
@@ -142,20 +164,7 @@ class WifiMonitor(threading.Thread):
         return self._parse_netsh_output(raw)
 
     def _run_netsh(self) -> bytes:
-        kwargs: Dict[str, object] = {
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.PIPE,
-        }
-
-        if sys.platform == "win32":
-            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-
-        process = subprocess.run(["netsh", "wlan", "show", "interfaces"], **kwargs)
-        if process.returncode != 0:
-            raise RuntimeError(f"netsh exited with {process.returncode}")
-
-        assert isinstance(process.stdout, bytes)
-        return process.stdout
+        return _run_netsh_bytes(["wlan", "show", "interfaces"])
 
     # netsh prints one block per interface, blocks separated by blank
     # lines. Keys may be localized and the separator may be a full-width
@@ -233,7 +242,8 @@ class WifiMonitor(threading.Thread):
         flush()
         return blocks
 
-    def _decode_output(self, raw: bytes) -> str:
+    @staticmethod
+    def _decode_output(raw: bytes) -> str:
         if raw.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in raw[:64]:
             try:
                 return raw.decode("utf-16")
@@ -318,3 +328,126 @@ class WifiMonitor(threading.Thread):
         # sleeps and must never block state processing.
         if event is not None:
             self._dispatch_event(event)
+
+
+# -- netsh SSID listings (rule-editor candidates) -------------------------
+#
+# These helpers back the editable SSID dropdowns in the rule editor:
+# users pick a network instead of typing its name. All fetchers degrade
+# to an empty list on any failure (netsh missing, non-zero exit, odd
+# locale) so the editor always stays usable with manual input.
+
+_SSID_INDEX_KEY = re.compile(r"^SSID\s+\d+$")
+
+
+def _run_netsh_bytes(arguments: List[str]) -> bytes:
+    kwargs: Dict[str, object] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+    }
+
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    try:
+        process = subprocess.run(["netsh", *arguments], timeout=5, **kwargs)
+    except subprocess.TimeoutExpired as exc:
+        # A hung netsh (wedged wireless service/driver) must degrade to
+        # one failed read, never block the monitor thread forever
+        # (review bug 14).
+        raise RuntimeError("netsh timed out after 5s") from exc
+    if process.returncode != 0:
+        raise RuntimeError(f"netsh exited with {process.returncode}")
+
+    assert isinstance(process.stdout, bytes)
+    return process.stdout
+
+
+def _run_netsh_text(arguments: List[str]) -> str:
+    return WifiMonitor._decode_output(_run_netsh_bytes(arguments))
+
+
+def _split_field(line: str) -> "tuple[str, str] | None":
+    parts = WifiMonitor._FIELD_SPLIT.split(line, maxsplit=1)
+    if len(parts) != 2:
+        return None
+    return parts[0].strip(), parts[1].strip()
+
+
+def parse_visible_ssids(text: str) -> List[str]:
+    """Extract SSIDs from ``netsh wlan show networks`` output.
+
+    Only the ``SSID <n> :`` lines count (BSSID lines must not match);
+    hidden networks have an empty value and are skipped. The SSID label
+    itself is not localized, so this works for English and Chinese
+    output alike.
+    """
+    ssids: List[str] = []
+    for line in text.splitlines():
+        field = _split_field(line)
+        if field is None:
+            continue
+        key, value = field
+        if value and _SSID_INDEX_KEY.match(key) and value not in ssids:
+            ssids.append(value)
+    return ssids
+
+
+def parse_saved_profile_names(text: str) -> List[str]:
+    """Extract profile names from ``netsh wlan show profiles`` output.
+
+    Profile lines are the only ones whose label mentions a profile
+    (English "All User Profile"/"Current User Profile", Chinese
+    "所有用户配置文件" etc.); placeholders like ``<None>``/``<无>`` are
+    skipped.
+    """
+    names: List[str] = []
+    for line in text.splitlines():
+        field = _split_field(line)
+        if field is None:
+            continue
+        key, value = field
+        if not value or value in {"<None>", "<无>"}:
+            continue
+        if "Profile" in key or "配置文件" in key:
+            if value not in names:
+                names.append(value)
+    return names
+
+
+def list_visible_ssids() -> List[str]:
+    """SSIDs from a live scan; [] on any failure."""
+    try:
+        return parse_visible_ssids(_run_netsh_text(["wlan", "show", "networks"]))
+    except Exception:
+        logger.debug("netsh network scan failed", exc_info=True)
+        return []
+
+
+def list_saved_profile_names() -> List[str]:
+    """Saved Wi-Fi profile names; [] on any failure."""
+    try:
+        return parse_saved_profile_names(_run_netsh_text(["wlan", "show", "profiles"]))
+    except Exception:
+        logger.debug("netsh profile listing failed", exc_info=True)
+        return []
+
+
+def collect_ssid_candidates(current_ssid: Optional[str]) -> List[str]:
+    """Candidate SSIDs for the rule editor, de-duplicated, order kept.
+
+    The currently connected network comes first (it is what a one-click
+    rule is about), then scan results, then saved profiles.
+    """
+    candidates: List[str] = []
+
+    def add(value: Optional[str]) -> None:
+        if value and value not in candidates:
+            candidates.append(value)
+
+    add(current_ssid)
+    for ssid in list_visible_ssids():
+        add(ssid)
+    for name in list_saved_profile_names():
+        add(name)
+    return candidates
