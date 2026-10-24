@@ -1,5 +1,7 @@
 """Integration tests: monitor events fed through the rule engine must
-match the shipped default rules in the scenarios the app exists for.
+match a representative Xms rule pair in the scenarios the app exists
+for. (Up to v0.2.0 these were the shipped defaults; since v0.3.0 the
+default config ships no rules, so the pair lives here as a fixture.)
 """
 
 from __future__ import annotations
@@ -11,9 +13,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import DEFAULT_CONFIG
+from config import LEGACY_DEFAULT_RULES
 from rule_engine import RuleEngine
 from wifi_monitor import WifiMonitor, WifiState
+
+
+SAMPLE_RULES = LEGACY_DEFAULT_RULES
 
 
 def make_state(ssid: str | None) -> WifiState:
@@ -28,7 +33,7 @@ def make_state(ssid: str | None) -> WifiState:
 def matched_rule_ids(ssids: list[str | None]) -> list[str]:
     matched: list[str] = []
     engine = RuleEngine()
-    rules = copy.deepcopy(DEFAULT_CONFIG["rules"])
+    rules = copy.deepcopy(SAMPLE_RULES)
 
     def handle(event: dict) -> None:
         for rule in engine.evaluate(event, rules):
@@ -71,7 +76,7 @@ class DefaultRuleMatchingTests(unittest.TestCase):
 
     def test_cooldown_blocks_immediate_refire(self) -> None:
         engine = RuleEngine()
-        rules = copy.deepcopy(DEFAULT_CONFIG["rules"])
+        rules = copy.deepcopy(SAMPLE_RULES)
         event = {
             "type": "on_disconnect",
             "previous_ssid": "Xms",
