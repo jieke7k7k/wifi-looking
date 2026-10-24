@@ -25,14 +25,29 @@ except ImportError:  # pragma: no cover
     QApplication = None
 
 if QApplication is not None:
-    from config import DEFAULT_CONFIG, ConfigManager
+    from config import DEFAULT_CONFIG, LEGACY_DEFAULT_RULES, ConfigManager
     from main_window import (
+        ACTION_CLOSE_CONNECTIONS,
+        ACTION_LABELS,
         EVENT_LABELS,
         EVENT_CONNECT,
         EVENT_DISCONNECT,
         EVENT_SWITCH,
         MainWindow,
     )
+
+
+def _sample_rules():
+    """The two sample rules most window tests edit.
+
+    Mirrors the v0.2.0 factory pair, except the cooldown differs on
+    purpose: an exact copy would be cleared by the legacy migration
+    (which has its own tests) before the window ever sees it.
+    """
+    rules = copy.deepcopy(LEGACY_DEFAULT_RULES)
+    for rule in rules:
+        rule["cooldown_seconds"] = 15
+    return rules
 
 
 class _StubMonitor:
@@ -48,8 +63,10 @@ class MainWindowRuleTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         config_path = Path(self._tmp.name) / "config.json"
+        config = copy.deepcopy(DEFAULT_CONFIG)
+        config["rules"] = _sample_rules()
         config_path.write_text(
-            json.dumps(copy.deepcopy(DEFAULT_CONFIG), ensure_ascii=False),
+            json.dumps(config, ensure_ascii=False),
             encoding="utf-8",
         )
         self.config_manager = ConfigManager(config_path)
@@ -87,7 +104,7 @@ class MainWindowRuleTests(unittest.TestCase):
 
     # -- tests ------------------------------------------------------------
 
-    def test_default_rules_shown_with_full_ssid_lists(self) -> None:
+    def test_seeded_rules_shown_with_full_ssid_lists(self) -> None:
         self.assertEqual(self.window.table.rowCount(), 2)
         self.assertEqual(self.window.table.item(0, 1).text(), EVENT_LABELS[EVENT_DISCONNECT])
         self.assertEqual(self.window.table.item(0, 2).text(), "Xms, Xms 5G")
@@ -139,6 +156,12 @@ class MainWindowRuleTests(unittest.TestCase):
 
     def test_duplicate_rule_not_added(self) -> None:
         self.set_form(EVENT_SWITCH, "Xms, Xms 5G", "*")
+        # The seeded switch rule uses close_connections; the form's
+        # default action is kill_process since v0.3.0, so pin the form
+        # to the seeded rule's action for a true duplicate.
+        self.window.action_combo.setCurrentText(
+            ACTION_LABELS[ACTION_CLOSE_CONNECTIONS]
+        )
         self.window._add_rule()
         self.assertEqual(len(self.rules()), 2)
 
@@ -178,6 +201,9 @@ class MainWindowRuleTests(unittest.TestCase):
 
     def test_duplicate_detection_ignores_ssid_order(self) -> None:
         self.set_form(EVENT_SWITCH, "Xms 5G, Xms", "*")
+        self.window.action_combo.setCurrentText(
+            ACTION_LABELS[ACTION_CLOSE_CONNECTIONS]
+        )
         self.window._add_rule()
         self.assertEqual(len(self.rules()), 2)
 
