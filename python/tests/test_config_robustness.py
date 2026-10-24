@@ -83,7 +83,7 @@ class CorruptConfigRecoveryTests(unittest.TestCase):
             path = Path(tmp) / "config.json"
             path.write_text(json.dumps(DEFAULT_CONFIG), encoding="utf-8")
             manager = app_main.load_config_manager(path)
-            self.assertEqual(len(manager.get_rules()), 2)
+            self.assertEqual(manager.get_rules(), DEFAULT_CONFIG["rules"])
             self.assertFalse((Path(tmp) / "config.json.corrupt").exists())
 
 
