@@ -35,7 +35,9 @@ VersionInfoDescription={#MyAppName} installer
 ; ship ChineseSimplified.isl, so compiler:Languages\... fails there.
 ; This is Inno Setup's own official Simplified Chinese messages file.
 Name: "chinesesimplified"; MessagesFile: "installer-languages\ChineseSimplified.isl"
-DefaultLanguage=chinesesimplified
+; Note: there is no DefaultLanguage parameter in Inno Setup's
+; [Languages] section; with a single language listed it is the
+; default automatically, so no extra line is needed here.
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务:"
