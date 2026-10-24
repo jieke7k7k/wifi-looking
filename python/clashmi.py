@@ -130,6 +130,45 @@ class ClashMiClient:
         connections = payload.get("connections")
         return len(connections) if isinstance(connections, list) else 0
 
+    def get_configs(self) -> Dict[str, Any]:
+        response = self._request("GET", "/configs")
+
+        if not response.ok:
+            raise ClashMiError(f"ClashMi API 返回 {response.status_code}: {response.text[:200]}")
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ClashMiError("ClashMi API 返回了无效 JSON") from exc
+
+        return payload if isinstance(payload, dict) else {}
+
+    def is_tun_enabled(self) -> bool:
+        tun = self.get_configs().get("tun")
+        return bool(isinstance(tun, dict) and tun.get("enable"))
+
+    def is_active(self) -> bool:
+        """Whether ClashMi is effectively "on" for the startup guard.
+
+        On means TUN enabled or at least one live connection. Any query
+        failure counts as "not on": a guard that cannot confirm ClashMi
+        is running must stay silent instead of nagging.
+        """
+        # A failed TUN query must not short-circuit the verdict
+        # (review R4 note): the API may be mid-restart or the secret
+        # may have rotated while connections are still live. Only if
+        # *both* probes fail do we say "not on".
+        try:
+            if self.is_tun_enabled():
+                return True
+        except ClashMiError:
+            pass
+
+        try:
+            return self.connection_count() > 0
+        except ClashMiError:
+            return False
+
     def close_connections(self, timeout_seconds: float = 3.0) -> int:
         # The DELETE is the only request that matters. The "before"
         # count is informational: if the GET fails for any reason, the
