@@ -15,7 +15,12 @@ from clashmi import ClashMiClient
 
 def main() -> int:
     client = ClashMiClient()
-    print(client.settings)
+    # Never print the settings object itself: it carries the
+    # controller secret (pre-check item 3). Only the endpoint and
+    # source are diagnostic; the secret is shown as present/absent.
+    print("base_url", client.settings.base_url)
+    print("source", client.settings.source)
+    print("secret_present", bool(client.settings.secret))
     print("connections", client.connection_count())
     return 0
 
