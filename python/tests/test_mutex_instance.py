@@ -104,6 +104,11 @@ class MutexFileFallbackTests(unittest.TestCase):
             finally:
                 mutex.release()
 
+    @unittest.skipIf(
+        sys.platform == "win32",
+        "Windows uses the system mutex and never reads the lock file, "
+        "so the file-fallback 'held' behavior does not apply there.",
+    )
     def test_unreadable_lock_is_not_stolen(self):
         with tempfile.TemporaryDirectory() as tmp:
             lock = Path(tmp) / "single_instance.lock"
@@ -124,7 +129,10 @@ class FixedAppIdDirTests(unittest.TestCase):
             directory = fixed_app_id_dir()
         self.assertEqual(directory.name, "XiaoMaLink")
         self.assertNotIn("WiFi-Looking", str(directory))
-        self.assertTrue(str(directory).endswith(".local/share/XiaoMaLink"))
+        # Separator-independent: on Windows, str() uses backslashes,
+        # so a forward-slash endswith check fails even though the
+        # mocked-Linux branch returned the right directory.
+        self.assertEqual(directory.parts[-3:], (".local", "share", "XiaoMaLink"))
 
 
 if __name__ == "__main__":

@@ -156,6 +156,11 @@ class ProcessWatcherTests(unittest.TestCase):
         finally:
             watcher.stop()
 
+    @unittest.skipIf(
+        sys.platform == "win32",
+        "The WMI stack is present on Windows CI; this test covers the "
+        "no-WMI-stack environment (non-Windows platforms).",
+    )
     def test_wmi_watcher_constructs_without_wmi_stack(self) -> None:
         # Importing and constructing must never fail on Linux.
         watcher = WmiProcessWatcher(["wegame.exe"])
