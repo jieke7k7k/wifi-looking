@@ -25,6 +25,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import clashmi_close
 import wifi_monitor
 from action_executor import CLASHMI_PROCESS_NAMES, ActionExecutor
 from clashmi import ClashMiClient, ClashMiError, ClashMiSettings
@@ -165,82 +166,149 @@ class CollectCandidatesTests(unittest.TestCase):
 
 
 # -- R2: kill process action ----------------------------------------------
+# v1.0.0: clashmi.kill_process 走四步原子关闭 close_clashmi_atomic()，
+# 返回 {ok, steps, details, killed}；mock clashmi_close 内部的进程快照
+# 与进程树强杀（不再是旧版的 action_executor.subprocess.run）。
 
 def _completed(returncode: int):
     return types.SimpleNamespace(returncode=returncode, stdout="", stderr="")
 
 
+class _FakeClashMiClient:
+    """替身 ClashMiClient：API 步骤成功，不触网。"""
+
+    def __init__(self, *args, **kwargs):
+        self.settings = types.SimpleNamespace(base_url="http://127.0.0.1:7890")
+
+    def disable_tun(self):
+        return None
+
+    def close_connections(self):
+        return 0
+
+
+def _proc(name, pid, ppid=1, exe=None):
+    return {
+        "name": name,
+        "pid": pid,
+        "ppid": ppid,
+        "exe": exe or (r"C:\ClashMi\\" + name),
+    }
+
+
 class KillProcessActionTests(unittest.TestCase):
-    def run_kill(self, fake_run):
+    def run_kill(self, snapshots, tree_kill):
+        """snapshots：before/after/final 三次快照；tree_kill：强杀回调。"""
         executor = ActionExecutor()
-        with mock.patch("action_executor.subprocess.run", side_effect=fake_run) as run:
-            result = executor.execute_action({"type": "clashmi.kill_process"}, {})
-        return result, run
+        patches = [
+            mock.patch("action_executor.ClashMiClient", _FakeClashMiClient),
+            mock.patch.object(
+                clashmi_close,
+                "default_process_snapshot",
+                side_effect=[list(s) for s in snapshots],
+            ),
+            mock.patch.object(
+                clashmi_close,
+                "default_tree_kill",
+                side_effect=tree_kill,
+            ),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            return executor.execute_action({"type": "clashmi.kill_process"}, {})
+        finally:
+            for p in reversed(patches):
+                p.stop()
 
     def test_all_killed(self) -> None:
-        # Review fix (bug 1): the primary name is taskkilled; the
-        # generic secondary name is reported already-off from the
-        # process snapshot instead of being blindly taskkilled.
-        result, run = self.run_kill(lambda *a, **k: _completed(0))
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["killed"], ["ClashMi.exe"])
-        self.assertIn("mihomo.exe", result["already_off"])
-        self.assertEqual(run.call_count, 1)
+        # 主进程 + ClashMi 路径内核进程都被杀 -> ok，killed 含两者。
+        snapshots = [
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [],
+        ]
+        result = self.run_kill(snapshots, lambda pid, name=None: (True, "killed"))
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["killed"], ["ClashMi.exe", "mihomo.exe"])
+        self.assertIn("steps", result)
+        self.assertIn("details", result)
+        self.assertTrue(result["details"]["main_gone"])
 
     def test_taskkill_args_have_force_image_no_tree(self) -> None:
-        _, run = self.run_kill(lambda *a, **k: _completed(0))
-        for call in run.call_args_list:
-            args = call.args[0]
-            self.assertEqual(args[0], "taskkill")
-            self.assertIn("/F", args)
-            self.assertIn("/IM", args)
-            self.assertNotIn("/T", args)
+        # 需求 3.1 第 3 步：进程树强杀等同 taskkill /F /T。
+        with mock.patch.object(clashmi_close, "IS_WINDOWS", True), \
+                mock.patch.object(
+                    clashmi_close.subprocess, "CREATE_NO_WINDOW", 0, create=True
+                ), \
+                mock.patch.object(
+                    clashmi_close.subprocess, "run", return_value=_completed(0)
+                ) as run:
+            ok, _detail = clashmi_close.default_tree_kill(100)
+        self.assertTrue(ok)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[0], "taskkill")
+        self.assertIn("/F", argv)
+        self.assertIn("/T", argv)
+        self.assertIn("/PID", argv)
 
     def test_absent_process_counts_as_success(self) -> None:
-        result, _ = self.run_kill(lambda *a, **k: _completed(128))
-        self.assertTrue(result["ok"])
+        # 本来就没有 ClashMi 进程 -> ok，killed 为空。
+        result = self.run_kill([[], [], []], lambda pid, name=None: (True, "killed"))
+        self.assertTrue(result["ok"], result)
         self.assertEqual(result["killed"], [])
-        self.assertEqual(sorted(result["already_off"]), sorted(CLASHMI_PROCESS_NAMES))
 
     def test_other_failure_reported_not_raised(self) -> None:
-        # Review fix (bug 1): only the primary name is taskkilled;
-        # the generic secondary name is already-off from the process
-        # snapshot, so exactly one failure (the primary) is reported.
-        result, _ = self.run_kill(lambda *a, **k: _completed(1))
+        # 强杀返回失败（taskkill 返回非 0）绝不抛异常；主进程仍在 -> ok=False。
+        snapshots = [
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+        ]
+        result = self.run_kill(
+            snapshots, lambda pid, name=None: (False, "taskkill 返回 1")
+        )
         self.assertFalse(result["ok"])
-        self.assertEqual(len(result["failed"]), 1)
-        self.assertEqual(result["failed"][0]["process"], "ClashMi.exe")
-        self.assertIn("mihomo.exe", result["already_off"])
+        self.assertIn("failed", result)
 
     def test_taskkill_unavailable_does_not_raise(self) -> None:
-        def boom(*a, **k):
+        # 强杀抛异常（如 taskkill 不存在）绝不冒出 execute_action。
+        def boom(pid, name=None):
             raise FileNotFoundError("taskkill")
 
-        result, _ = self.run_kill(boom)
+        snapshots = [
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+        ]
+        result = self.run_kill(snapshots, boom)
         self.assertFalse(result["ok"])
 
     def test_mixed_outcome(self) -> None:
-        # Review fix (bug 4): primary killed, secondary (from the
-        # snapshot, a ClashMi-owned mihomo.exe) fails => ok stays True
-        # so the rule's cooldown is recorded; the failure is reported.
-        # NOTE: the shared run_kill mock has no snapshot, so the
-        # secondary is treated as ClashMi-owned here only when the
-        # snapshot path is bypassed; this test now drives the
-        # primary-failure case instead and the primary-success case
-        # lives in test_review_fixes_v030.py.
-        codes = iter([1, 0])
-        result, _ = self.run_kill(lambda *a, **k: _completed(next(codes)))
-        self.assertFalse(result["ok"])  # primary failed
-        self.assertEqual(len(result["failed"]), 1)
+        # 主进程杀掉、ClashMi 内核强杀失败残留 -> 部分失败，ok=False。
+        def kill(pid, name=None):
+            return (True, "killed") if pid == 100 else (False, "拒绝访问")
+
+        snapshots = [
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("mihomo.exe", 101, ppid=100)],
+        ]
+        result = self.run_kill(snapshots, kill)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["details"]["main_gone"])
+        self.assertFalse(result["details"]["kernel_gone"])
+        self.assertEqual(result["killed"], ["ClashMi.exe"])
 
     def test_dry_run_calls_nothing(self) -> None:
         executor = ActionExecutor()
-        with mock.patch("action_executor.subprocess.run") as run:
+        with mock.patch("clashmi_close.close_clashmi_atomic") as close:
             result = executor.execute_action(
                 {"type": "clashmi.kill_process"}, {}, dry_run=True
             )
         self.assertTrue(result["ok"])
-        run.assert_not_called()
+        self.assertTrue(result["dry_run"])
+        close.assert_not_called()
 
 
 # -- R3: default rules + migration ------------------------------------------

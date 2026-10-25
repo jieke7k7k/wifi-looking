@@ -25,6 +25,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import clashmi_close
 from action_executor import ActionExecutor
 from clashmi import ClashMiError
 from config import ConfigManager, LEGACY_DEFAULT_RULES
@@ -78,93 +79,129 @@ class SsidNormalizationTests(unittest.TestCase):
 
 # ------------------------------------------------- bugs 1/3/4/5/23: kill
 
+class _FakeClashMiClient:
+    """替身 ClashMiClient：API 步骤成功，不触网。"""
+
+    def __init__(self, *args, **kwargs):
+        self.settings = types.SimpleNamespace(base_url="http://127.0.0.1:7890")
+
+    def disable_tun(self):
+        return None
+
+    def close_connections(self):
+        return 0
+
+
+def _proc(name, pid, ppid=1, exe=None):
+    return {
+        "name": name,
+        "pid": pid,
+        "ppid": ppid,
+        "exe": exe or ("C:\\ClashMi\\" + name),
+    }
+
+
 class KillProcessReviewTests(unittest.TestCase):
-    def run_kill(self, fake_run, snapshot=None):
+    def run_kill(self, snapshots, tree_kill):
+        """snapshots：before/after/final 三次快照；tree_kill：强杀回调。
+
+        v1.0.0 起 clashmi.kill_process 走四步原子关闭（clashmi_close），
+        因此 mock clashmi_close 内部的进程快照与进程树强杀，而非旧版的
+        action_executor.subprocess.run / ActionExecutor._process_snapshot。
+        """
         executor = ActionExecutor()
-        patches = [mock.patch("action_executor.subprocess.run", side_effect=fake_run)]
-        if snapshot is not None:
-            patches.append(
-                mock.patch.object(
-                    ActionExecutor, "_process_snapshot", side_effect=snapshot
-                )
-            )
-        else:
-            patches.append(
-                mock.patch.object(ActionExecutor, "_process_snapshot", return_value=[])
-            )
-        # The post-kill API probe must not reach a real ClashMi in tests.
-        patches.append(
-            mock.patch("action_executor.ClashMiClient", side_effect=ClashMiError("down"))
-        )
+        patches = [
+            mock.patch("action_executor.ClashMiClient", _FakeClashMiClient),
+            mock.patch.object(
+                clashmi_close,
+                "default_process_snapshot",
+                side_effect=[list(s) for s in snapshots],
+            ),
+            mock.patch.object(
+                clashmi_close,
+                "default_tree_kill",
+                side_effect=tree_kill,
+            ),
+        ]
         for p in patches:
             p.start()
         try:
-            result = executor.execute_action({"type": "clashmi.kill_process"}, {})
+            return executor.execute_action({"type": "clashmi.kill_process"}, {})
         finally:
             for p in reversed(patches):
                 p.stop()
-        return result
 
     def test_primary_only_killed_secondary_absent_via_snapshot(self) -> None:
-        # bug 1: the generic secondary name is not blindly taskkilled
-        # when the snapshot shows it is not running at all.
-        result = self.run_kill(lambda *a, **k: _completed(0))
+        # bug 1: 快照里根本没有内核进程时，只杀主进程，不凭空按名杀内核。
+        snapshots = [
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+            [],
+        ]
+        result = self.run_kill(snapshots, lambda pid, name=None: (True, "killed"))
         self.assertEqual(result["killed"], ["ClashMi.exe"])
-        self.assertEqual(result["already_off"], ["mihomo.exe"])
-        self.assertTrue(result["ok"])
+        self.assertTrue(result["ok"], result)
 
     def test_secondary_skipped_when_path_is_not_clashmi(self) -> None:
-        # bug 1: a running mihomo.exe from another client is skipped.
-        snapshot = [
-            [
-                {"name": "mihomo.exe", "exe": r"C:\Users\x\FlClash\mihomo.exe", "pid": 1}
-            ],
-            [],
+        # bug 1: 其它客户端（FlClash）的 mihomo.exe 被跳过，绝不无差别按名杀。
+        other = _proc("mihomo.exe", 200, ppid=1, exe=r"C:\Users\x\FlClash\mihomo.exe")
+        snapshots = [
+            [_proc("ClashMi.exe", 100), other],
+            [_proc("ClashMi.exe", 100), other],
+            [other],
         ]
-        result = self.run_kill(lambda *a, **k: _completed(0), snapshot=snapshot)
+        result = self.run_kill(snapshots, lambda pid, name=None: (True, "killed"))
         self.assertEqual(result["killed"], ["ClashMi.exe"])
-        self.assertEqual(len(result["skipped"]), 1)
-        self.assertEqual(result["skipped"][0]["process"], "mihomo.exe")
-        self.assertTrue(result["ok"])
+        kill_step = result["steps"][2]
+        skipped = kill_step["detail"]["skipped_kernel"]
+        self.assertTrue(any(s["pid"] == 200 for s in skipped))
+        self.assertTrue(result["ok"], result)
 
     def test_secondary_killed_when_path_is_clashmi(self) -> None:
-        snapshot = [
-            [
-                {"name": "mihomo.exe", "exe": r"C:\Program Files\ClashMi\mihomo.exe", "pid": 1}
-            ],
+        snapshots = [
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
             [],
         ]
-        result = self.run_kill(lambda *a, **k: _completed(0), snapshot=snapshot)
+        result = self.run_kill(snapshots, lambda pid, name=None: (True, "killed"))
         self.assertEqual(sorted(result["killed"]), ["ClashMi.exe", "mihomo.exe"])
+        self.assertTrue(result["ok"], result)
 
     def test_primary_surviving_after_kill_is_not_success(self) -> None:
-        # bug 3: taskkill returning 0 is not proof ClashMi is off.
-        snapshot = [
-            [],
-            [{"name": "ClashMi.exe", "exe": r"C:\ClashMi\ClashMi.exe", "pid": 9}],
+        # bug 3: 强杀返回 0 不等于 ClashMi 已关，最终快照残留主进程即失败。
+        snapshots = [
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
         ]
-        result = self.run_kill(lambda *a, **k: _completed(0), snapshot=snapshot)
+        result = self.run_kill(snapshots, lambda pid, name=None: (True, "killed"))
         self.assertFalse(result["ok"])
-        self.assertFalse(result["verified_off"])
+        self.assertFalse(result["details"]["main_gone"])
 
     def test_secondary_failure_does_not_block_cooldown(self) -> None:
-        # bug 4: primary off + secondary failed => ok, so the rule's
-        # cooldown is recorded instead of retrying forever.
-        codes = iter([0, 1])
-        snapshot = [
-            [
-                {"name": "mihomo.exe", "exe": r"C:\ClashMi\mihomo.exe", "pid": 1}
-            ],
-            [],
+        # bug 4（v1.0.0 语义）：主进程已消失但 ClashMi 内核强杀失败残留
+        # -> ok=False。按需求 4.2，失败/部分失败不计入冷却，可重试，
+        # 不再像旧版那样把内核失败吞成成功。
+        def kill(pid, name=None):
+            return (True, "killed") if pid == 100 else (False, "拒绝访问")
+
+        snapshots = [
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("ClashMi.exe", 100), _proc("mihomo.exe", 101, ppid=100)],
+            [_proc("mihomo.exe", 101, ppid=100)],
         ]
-        result = self.run_kill(
-            lambda *a, **k: _completed(next(codes)), snapshot=snapshot
-        )
-        self.assertTrue(result["ok"])
-        self.assertEqual(len(result["failed"]), 1)
+        result = self.run_kill(snapshots, kill)
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["details"]["kernel_gone"])
+        self.assertEqual(result["killed"], ["ClashMi.exe"])
 
     def test_primary_failure_is_failure(self) -> None:
-        result = self.run_kill(lambda *a, **k: _completed(1))
+        snapshots = [
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+            [_proc("ClashMi.exe", 100)],
+        ]
+        result = self.run_kill(snapshots, lambda pid, name=None: (False, "taskkill 返回 1"))
         self.assertFalse(result["ok"])
 
     def test_taskkill_timeout_is_failure_not_hang(self) -> None:
@@ -701,10 +738,14 @@ class InstallerReviewTests(unittest.TestCase):
             "ArchitecturesAllowed=x64compatible",  # bug 29
             "VersionInfoVersion",  # bug 29
             "chinesesimplified",  # bug 17
-            "--minimized",  # bug 26
             "dist\\config.json",  # bug 15
+            # P0-8：自启统一走 Task Scheduler，卸载时清理任务计划。
+            "[UninstallRun]",
+            "/DELETE /TN XiaoMaLink /F",
         ):
             self.assertIn(needle, text)
+        # P0-8：安装器不再提供启动目录快捷方式自启。
+        self.assertNotIn("{userstartup}", text)
 
     def test_code_version_matches_installer_version(self) -> None:
         # bug 29 / pre-check 9
