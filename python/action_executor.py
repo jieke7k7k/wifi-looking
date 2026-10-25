@@ -14,6 +14,13 @@ import requests
 
 from clashmi import ClashMiClient, ClashMiError
 
+try:
+    from system_actions import ACTION_TYPES as SYSTEM_ACTION_TYPES
+    from system_actions import execute_system_action as _execute_system_action
+except Exception:  # pragma: no cover - defensive
+    SYSTEM_ACTION_TYPES = ()
+    _execute_system_action = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +91,7 @@ class ActionExecutor:
         action: Dict[str, Any],
         event: Dict[str, object],
         dry_run: bool = False,
+        confirmation=None,
     ) -> Dict[str, Any]:
         action_type = action.get("type")
 
@@ -117,6 +125,17 @@ class ActionExecutor:
                 "action": "log",
                 "message": action.get("message", "Rule matched"),
             }
+
+        if action_type in SYSTEM_ACTION_TYPES:
+            if _execute_system_action is None:
+                return {
+                    "ok": False,
+                    "action": action_type,
+                    "error": "系统动作模块不可用",
+                }
+            return _execute_system_action(
+                action, dry_run=dry_run, confirmation=confirmation
+            )
 
         return {"ok": False, "error": f"Unsupported action type: {action_type}"}
 
@@ -169,23 +188,13 @@ class ActionExecutor:
             return {"ok": False, "action": "clashmi.test_connection", "error": str(exc)}
 
     def method_clashmi_kill_process(self, dry_run: bool = False) -> Dict[str, Any]:
-        """Turn ClashMi off by terminating its processes (taskkill /F /IM).
+        """v1.0.0: ClashMi 四步原子关闭（见 clashmi_close 模块）。
 
-        Conservative ownership model (review bugs 1/3/4):
-        - Primary target: ClashMi.exe (name is ClashMi-specific).
-        - Secondary targets (generic names like mihomo.exe) are only
-          killed when a process snapshot shows their executable path
-          belongs to a ClashMi install; otherwise they are skipped and
-          logged, never killed blind.
-        - Each name is killed individually without /T (never a whole
-          process tree). Exit 128 / not-in-snapshot counts as already
-          off. Failures are reported, never raised.
-        - Success is decided by the primary target plus a post-kill
-          verification snapshot: if a primary process is verifiably
-          still running, ok is False even if taskkill claimed success.
-          Failures of secondary targets are reported but do not flip
-          ok (and do not block cooldown) when the primary target is
-          off — see review bug 4.
+        步骤：API 优雅卸载（关代理与 TUN、断全部连接）→ 关闭主窗口
+        → 1.5 秒后进程树强杀 → 注册表代理兜底。单步失败不中断
+        后续；ok 当且仅当主进程消失且代理干净。内核进程（mihomo /
+        clash-meta）只杀 ClashMi 树内或路径像 ClashMi 的，绝不按名
+        无差别强杀（沿用 v0.3.0 保守模型）。
         """
         primary_names, secondary_names = _load_configured_process_names()
         if dry_run:
@@ -195,100 +204,49 @@ class ActionExecutor:
                 "dry_run": True,
                 "targets": primary_names + secondary_names,
             }
-
-        killed: list[str] = []
-        already_off: list[str] = []
-        skipped: list[Dict[str, Any]] = []
-        failed: list[Dict[str, Any]] = []
-
-        snapshot = self._process_snapshot()
-        snapshot_by_name: Dict[str, List[Dict[str, Any]]] = {}
-        for proc in snapshot or []:
-            snapshot_by_name.setdefault(proc["name"].lower(), []).append(proc)
-        if snapshot is not None:
-            for proc in snapshot:
-                if proc["name"].lower() in {
-                    n.lower() for n in primary_names + secondary_names
-                }:
-                    logger.info(
-                        "clashmi.kill_process candidate: %s pid=%s exe=%s",
-                        proc["name"], proc.get("pid"), proc.get("exe"),
-                    )
-
-        def kill_one(name: str) -> None:
-            status, detail = self._taskkill_image(name)
-            if status == "killed":
-                killed.append(name)
-            elif status == "absent":
-                already_off.append(name)
-            else:
-                failed.append({"process": name, "error": detail})
-                logger.warning("taskkill %s failed: %s", name, detail)
-                if "access" in detail.lower() or "拒绝访问" in detail or "denied" in detail.lower():
-                    logger.warning(
-                        "%s could not be terminated (access denied). If "
-                        "ClashMi runs as administrator, WiFi-Looking must "
-                        "also run as administrator to close it.",
-                        name,
-                    )
-
-        for name in primary_names:
-            kill_one(name)
-
-        for name in secondary_names:
-            procs = snapshot_by_name.get(name.lower())
-            if snapshot is not None and not procs:
-                already_off.append(name)
-                continue
-            if procs and not any(
-                _path_looks_like_clashmi(proc.get("exe")) for proc in procs
-            ):
-                skipped.append(
-                    {"process": name, "reason": "path-not-clashmi", "paths": [pr.get("exe") for pr in procs]}
-                )
-                logger.info(
-                    "Skipping %s: running instance(s) do not look like ClashMi (paths: %s)",
-                    name, [pr.get("exe") for pr in procs],
-                )
-                continue
-            kill_one(name)
-
-        # Post-kill verification (review bug 3): re-snapshot and make
-        # sure no primary process survived. API activity is logged as
-        # supporting evidence only — a just-killed GUI can leave the
-        # API briefly answering, so the process snapshot is decisive.
-        verified_off: Optional[bool] = None
-        after = self._process_snapshot()
-        if after is not None:
-            still = [
-                proc["name"]
-                for proc in after
-                if proc["name"].lower() in {n.lower() for n in primary_names}
-            ]
-            verified_off = not still
-            if still:
-                logger.warning("ClashMi still running after kill: %s", still)
         try:
-            if ClashMiClient().is_active():
-                logger.info("ClashMi API still reports active right after kill (may be shutting down)")
+            client = ClashMiClient()
         except Exception:
-            logger.debug("Post-kill ClashMi API probe failed", exc_info=True)
-
-        primary_failed = [f for f in failed if f["process"] in primary_names]
-        ok = not primary_failed and verified_off is not False
-
-        result: Dict[str, Any] = {
-            "ok": ok,
+            client = None
+        try:
+            from clashmi_close import close_clashmi_atomic
+        except Exception as exc:
+            return {
+                "ok": False,
+                "action": "clashmi.kill_process",
+                "error": f"无法加载关闭模块：{exc}",
+            }
+        result = close_clashmi_atomic(client)
+        failed: List[Dict[str, Any]] = []
+        killed: List[str] = []
+        for step in result.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            if not step.get("ok"):
+                detail = step.get("detail", {})
+                if isinstance(detail, dict):
+                    error = detail.get("error") or str(detail)
+                else:
+                    error = str(detail)
+                failed.append({"step": step.get("step"), "error": error})
+            if step.get("step") == "kill_process_tree":
+                detail = step.get("detail", {})
+                if isinstance(detail, dict):
+                    killed = [
+                        str(entry.get("name"))
+                        for entry in detail.get("killed", [])
+                        if isinstance(entry, dict) and entry.get("ok")
+                    ]
+        out: Dict[str, Any] = {
+            "ok": bool(result.get("ok")),
             "action": "clashmi.kill_process",
+            "steps": result.get("steps", []),
+            "details": result.get("details", {}),
             "killed": killed,
-            "already_off": already_off,
-            "verified_off": verified_off,
         }
-        if skipped:
-            result["skipped"] = skipped
         if failed:
-            result["failed"] = failed
-        return result
+            out["failed"] = failed
+        return out
 
     @staticmethod
     def _process_snapshot() -> Optional[List[Dict[str, Any]]]:

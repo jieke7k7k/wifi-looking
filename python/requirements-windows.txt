@@ -1,0 +1,9 @@
+# Windows 专用运行时依赖（P0-2 修复）。
+# 这些包只应在 Windows 打包/安装环境安装；Linux 下个别包不可安装或不可用。
+# 说明：bluetooth.set 依赖 winsdk，brightness.set 依赖 wmi（内置屏）与
+# monitorcontrol（外接屏 DDC/CI），volume.set/volume.mute 依赖 pycaw（含 comtypes）。
+winsdk>=1.0.0b10
+WMI>=1.5.1
+monitorcontrol>=2.5.2
+pycaw>=20240210
+comtypes>=1.4.0

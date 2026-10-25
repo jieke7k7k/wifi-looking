@@ -1,3 +1,5 @@
 requests>=2.32.3
 PySide6_Essentials==6.12.0
 psutil>=6.0.0
+# 核心系统动作（蓝牙/亮度/音量）的 Windows 专用依赖见 requirements-windows.txt，
+# 打包前须在 Windows 环境安装（build.py 已声明对应 hidden-import）。

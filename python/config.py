@@ -13,7 +13,7 @@ from ssid_utils import normalize_ssid
 
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "1.0.0"
 
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -21,6 +21,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "interval_seconds": 1.0,
         "debounce_count": 2,
         "use_native_notifications": True,
+        # v1.0.0: Wi-Fi 变化防抖确认延迟（秒）。状态变化后须稳定满
+        # 此时长才真正触发规则；0 表示立即触发（仅单元测试用）。
+        "confirm_delay_seconds": 3.0,
     },
     "logging": {
         "level": "INFO",
@@ -169,10 +172,22 @@ class ConfigManager:
 
     def __init__(self, config_path: Path | str = "config.json") -> None:
         self.config_path = Path(config_path)
+        # XiaoMaLink v1.0.0 (spec 4.1): every successful save is
+        # mirrored to this .bak file; restore_from_backup() can bring
+        # it back when config.json itself is damaged.
+        self.backup_path = self.config_path.with_name(
+            self.config_path.name + ".bak"
+        )
         self._config: Dict[str, Any] = copy.deepcopy(DEFAULT_CONFIG)
         # Human-readable reasons for rules dropped by tolerant
         # validation on the last load() (review bug 11).
         self.last_validation_warnings: list[str] = []
+        # Reason the last load() failed, if any (None after a
+        # successful load). The integration layer uses this for the
+        # tray alert on config-load failure; load() still raises
+        # exactly as before, so the .corrupt recovery flow in main.py
+        # is untouched.
+        self.last_load_error: str | None = None
 
     def ensure_config_exists(self) -> None:
         """Create config.json from defaults if it does not exist."""
@@ -185,17 +200,30 @@ class ConfigManager:
             )
 
     def load(self) -> Dict[str, Any]:
-        """Load and validate config.json."""
-        self.ensure_config_exists()
-        raw = self.config_path.read_text(encoding="utf-8")
-        try:
-            config = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ConfigError(f"Invalid JSON in {self.config_path}: {exc}") from exc
+        """Load and validate config.json.
 
-        self._validate(config)
-        self._config = config
-        self._migrate_legacy_default_rules()
+        Behaviour is unchanged (same raises, same validation, same
+        migration); the only addition is that a failure is also
+        recorded in ``last_load_error`` before it is re-raised, and a
+        success clears it.
+        """
+        try:
+            self.ensure_config_exists()
+            raw = self.config_path.read_text(encoding="utf-8")
+            try:
+                config = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ConfigError(
+                    f"Invalid JSON in {self.config_path}: {exc}"
+                ) from exc
+
+            self._validate(config)
+            self._config = config
+            self._migrate_legacy_default_rules()
+        except (ConfigError, OSError) as exc:
+            self.last_load_error = str(exc)
+            raise
+        self.last_load_error = None
         return self._config
 
     def _migrate_legacy_default_rules(self) -> None:
@@ -256,12 +284,73 @@ class ConfigManager:
         self._config["rules"] = rules
 
     def save(self) -> None:
-        """Save current config back to config.json (atomically)."""
+        """Save current config back to config.json (atomically).
+
+        On success the identical content is mirrored to
+        ``config.json.bak`` (spec 4.1). The mirror is best-effort: a
+        backup failure is only logged as a warning and can never make
+        save() itself fail.
+        """
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_atomic(
-            self.config_path,
-            json.dumps(self._config, ensure_ascii=False, indent=2) + "\n",
-        )
+        text = json.dumps(self._config, ensure_ascii=False, indent=2) + "\n"
+        _write_text_atomic(self.config_path, text)
+        try:
+            _write_text_atomic(self.backup_path, text)
+        except OSError:
+            logger.warning(
+                "Could not write config backup to %s", self.backup_path,
+                exc_info=True,
+            )
+
+    def backup_exists(self) -> bool:
+        """True if a usable ``config.json.bak`` file is present."""
+        return self.backup_path.is_file()
+
+    def restore_from_backup(self) -> bool:
+        """Restore config.json from ``config.json.bak`` (one-click path).
+
+        Returns True and atomically overwrites config.json (then
+        reloads ``_config``) only when the backup exists and parses
+        as a valid config object. Returns False and leaves the
+        original config.json byte-for-byte untouched when there is no
+        backup, the backup is not valid JSON, is not an object, or
+        fails validation; a failed atomic rewrite also returns False.
+        """
+        if not self.backup_exists():
+            return False
+        try:
+            raw = self.backup_path.read_text(encoding="utf-8")
+        except OSError:
+            logger.warning(
+                "Could not read config backup %s", self.backup_path,
+                exc_info=True,
+            )
+            return False
+        try:
+            restored = json.loads(raw)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(restored, dict):
+            return False
+        candidate = copy.deepcopy(restored)
+        try:
+            self._validate(candidate)
+        except ConfigError:
+            return False
+        try:
+            # Raw backup bytes, not a re-dump: the restored file must
+            # match the backup exactly. _config takes the validated
+            # copy, mirroring what load() would hold in memory.
+            _write_text_atomic(self.config_path, raw)
+        except OSError:
+            logger.warning(
+                "Could not restore config from backup %s", self.backup_path,
+                exc_info=True,
+            )
+            return False
+        self._config = candidate
+        self.last_load_error = None
+        return True
 
     def _validate(self, config: Dict[str, Any]) -> None:
         if not isinstance(config, dict):
@@ -295,6 +384,9 @@ class ConfigManager:
             monitor["use_native_notifications"], bool
         ):
             raise ConfigError("monitor.use_native_notifications must be a boolean")
+        confirm_delay = monitor.get("confirm_delay_seconds", 3.0)
+        if not isinstance(confirm_delay, (int, float)) or confirm_delay < 0:
+            raise ConfigError("monitor.confirm_delay_seconds must be >= 0")
 
         logging_cfg = config.get("logging", {})
         if not isinstance(logging_cfg, dict):
@@ -357,11 +449,24 @@ class ConfigManager:
             raise ConfigError(f"rule {rule_id}.when must be an object")
 
         event = when.get("event")
-        valid_events = {"on_disconnect", "on_connect", "on_switch"}
+        valid_events = {"on_disconnect", "on_connect", "on_switch", "on_program_started"}
         if event not in valid_events:
             raise ConfigError(
                 f"rule {rule_id}.when.event must be one of {sorted(valid_events)}"
             )
+
+        # v1.0.0 新增触发条件字段：程序触发的程序名、电源附加条件、
+        # 退出恢复开关。非法值直接判整条规则无效（容忍式剔除）。
+        if "program" in when and (
+            not isinstance(when["program"], str) or not when["program"].strip()
+        ):
+            raise ConfigError(f"rule {rule_id}.when.program must be a non-empty string")
+        if "power" in when and when["power"] not in {"any", "ac", "battery"}:
+            raise ConfigError(
+                f"rule {rule_id}.when.power must be one of any/ac/battery"
+            )
+        if "restore_on_exit" in rule and not isinstance(rule["restore_on_exit"], bool):
+            raise ConfigError(f"rule {rule_id}.restore_on_exit must be a boolean")
 
         actions = rule.get("actions", [])
         if not isinstance(actions, list) or not actions:
@@ -399,6 +504,13 @@ class ConfigManager:
             "delay",
             "log",
         }
+        # v1.0.0 系统动作类型（与 system_actions.ACTION_TYPES 同源；
+        # 导入失败时退化为旧集合，含新动作的规则会被剔除并记 warning）。
+        try:
+            from system_actions import ACTION_TYPES as _SYSTEM_ACTION_TYPES
+        except Exception:  # pragma: no cover - defensive
+            _SYSTEM_ACTION_TYPES = ()
+        valid_types |= set(_SYSTEM_ACTION_TYPES)
         if action_type not in valid_types:
             raise ConfigError(
                 f"rule {rule_id} action {action_index}.type must be one of {sorted(valid_types)}"

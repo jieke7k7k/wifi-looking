@@ -1,10 +1,10 @@
-﻿; WiFi-Looking Windows installer
+﻿; XiaoMaLink Windows installer
 ; NOTE: this file must be UTF-8 with BOM (Inno Setup 6 interprets
 ; non-ASCII text as ANSI otherwise, garbling the Chinese task text).
-#define MyAppName "WiFi-Looking"
-#define MyAppVersion "0.3.0"
-#define MyAppPublisher "WiFi-Looking"
-#define MyAppExeName "WiFi-Looking.exe"
+#define MyAppName "小马联动"
+#define MyAppVersion "1.0.0"
+#define MyAppPublisher "XiaoMaLink"
+#define MyAppExeName "XiaoMaLink.exe"
 
 [Setup]
 AppId={{8E9F6E13-0F97-4E8B-8DE4-2AC2BC2F1A3B}
@@ -12,12 +12,12 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={userpf}\WiFi-Looking
+DefaultDirName={userpf}\XiaoMaLink
 UsePreviousAppDir=yes
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 OutputDir=dist
-OutputBaseFilename=WiFi-Looking-Setup
+OutputBaseFilename=XiaoMaLink_Setup_v1.0.0
 SetupIconFile=assets\app.ico
 Compression=lzma2
 SolidCompression=yes
@@ -41,7 +41,6 @@ Name: "chinesesimplified"; MessagesFile: "installer-languages\ChineseSimplified.
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务:"
-Name: "autostart"; Description: "开机后自动启动 WiFi-Looking"; GroupDescription: "附加任务:"
 
 [Files]
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
@@ -56,17 +55,19 @@ Source: "dist\config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{group}\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
-; Autostart launches straight to the tray (--minimized, review bug 26):
-; popping the full window on every logon trains users to disable it.
-Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--minimized"; WorkingDir: "{app}"; Tasks: autostart
+; 自启统一由应用内“任务计划 /RL HIGHEST”实现（autostart.py），安装器不再
+; 提供启动目录快捷方式，避免出现两套自启路径。
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppName}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+; 卸载时删除应用内注册的 Task Scheduler 自启任务（P0-8 修复）。
+Filename: "{sys}\schtasks.exe"; Parameters: "/DELETE /TN XiaoMaLink /F"; Flags: runhidden
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\logs"
 Type: filesandordirs; Name: "{app}\__pycache__"
 ; config.json is deliberately NOT deleted: uninstall keeps the user's
 ; rules, and --reset-config (or deleting the file) restores defaults
-; (review bug 27). The startup-folder shortcut above is removed by
-; Inno Setup automatically with the [Icons] entries.
+; (review bug 27).

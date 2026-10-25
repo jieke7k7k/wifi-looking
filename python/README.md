@@ -1,4 +1,4 @@
-# WiFi-Looking Python 版
+# 小马联动 Python 版
 
 Windows 笔记本 Wi-Fi 变化监控工具：断开 / 连上 / 切换 Wi-Fi 时按规则触发动作，核心动作是断开 ClashMi 的活动连接。详细说明见仓库根目录的 README.md。
 
@@ -25,10 +25,11 @@ python main.py
 
 ```
 pip install -r requirements-dev.txt
+pip install -r requirements-windows.txt
 python build.py
 ```
 
-产出 `dist/WiFi-Looking.exe`，装有 Inno Setup 6 时同时产出安装器。
+产出 `dist/XiaoMaLink.exe`，装有 Inno Setup 6 时同时产出安装器 `dist/XiaoMaLink_Setup_v1.0.0.exe`。
 
 ## 测试
 

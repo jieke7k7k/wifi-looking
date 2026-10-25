@@ -6,6 +6,20 @@ from typing import Any, Dict, Iterable, List
 from ssid_utils import ssid_matches
 
 
+def _programs_match(expected: str, actual: object) -> bool:
+    """程序名是否匹配：忽略大小写，忽略 .exe 后缀有无的差异。"""
+
+    def _norm(value: str) -> str:
+        value = value.strip().lower()
+        if value.endswith(".exe"):
+            value = value[:-4]
+        return value
+
+    if not isinstance(actual, str):
+        return False
+    return _norm(expected) == _norm(actual)
+
+
 class RuleEngine:
     """Matches Wi-Fi events against configured rules with cooldown."""
 
@@ -75,6 +89,28 @@ class RuleEngine:
         expected_current = when.get("current_ssid")
         if not self._matches_ssid_pattern(expected_current, event.get("current_ssid")):
             return False
+
+        # v1.0.0: 程序触发条件。规则里写的是 exe 名（如 wegame.exe），
+        # 事件里带的也是监听名；比较时忽略大小写与 .exe 后缀差异。
+        expected_program = when.get("program")
+        if expected_program is not None:
+            if not _programs_match(str(expected_program), event.get("program")):
+                return False
+
+        # v1.0.0: 电源附加条件。事件自带 power 时优先用事件值（便于
+        # 测试注入），否则实时读取当前电源状态；any 表示不限制。
+        expected_power = when.get("power")
+        if expected_power is not None and str(expected_power) != "any":
+            actual_power = event.get("power")
+            if actual_power is None:
+                try:
+                    from power_state import get_power_state
+
+                    actual_power = get_power_state()
+                except Exception:
+                    actual_power = "unknown"
+            if str(actual_power) != str(expected_power):
+                return False
 
         return True
 

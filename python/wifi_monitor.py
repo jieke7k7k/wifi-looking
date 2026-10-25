@@ -38,11 +38,21 @@ class WifiMonitor(threading.Thread):
         interval_seconds: float = 1.0,
         debounce_count: int = 2,
         on_event: Optional[EventCallback] = None,
+        confirm_delay_seconds: float = 0.0,
+        time_fn: Optional[Callable[[], float]] = None,
     ) -> None:
         super().__init__(daemon=True)
         self.interval_seconds = float(interval_seconds)
         self.debounce_count = int(debounce_count)
         self.on_event = on_event
+        # v1.0.0: 变化确认延迟（秒）。候选事件须在该时长后重读仍
+        # 与承诺的最终 SSID 一致才真正派发，用于睡眠唤醒与信号边缘
+        # 的瞬断防抖。生产路径由监测配置传入 3.0；0 表示立即派发
+        #（单元测试用默认构造保持同步派发）。
+        self.confirm_delay_seconds = float(confirm_delay_seconds)
+        self._time_fn = time_fn or time.monotonic
+        self._pending_event: Optional[Dict[str, object]] = None
+        self._pending_since: Optional[float] = None
 
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
@@ -73,8 +83,19 @@ class WifiMonitor(threading.Thread):
         self._consecutive_read_failures = 0
 
     def stop(self) -> None:
+        """请求停止并等待监控线程与事件分发线程退出（P0-7 修复）。
+
+        超时采用有限等待：队列 get 最多 0.2s 轮询一次，正常会很快退出；
+        若线程仍在执行耗时的 on_event 回调，保留线程引用、不销毁 Qt 对象，
+        由上层退出流程继续等待或放弃窗口销毁顺序。
+        """
         self._stop_event.set()
         self._pause_event.set()
+        dispatcher = self._dispatcher
+        if dispatcher is not None and dispatcher.is_alive():
+            dispatcher.join(timeout=5.0)
+        if self.is_alive() and threading.current_thread() is not self:
+            self.join(timeout=5.0)
 
     # -- event dispatch ---------------------------------------------------
 
@@ -269,8 +290,44 @@ class WifiMonitor(threading.Thread):
             "正在连接",
         }
 
+    # -- v1.0.0 变化确认延迟 -------------------------------------------
+    # 候选事件先挂起，延迟满后重读（即后续稳定读数）仍与承诺的最终
+    # SSID 一致才派发；中途变卦（回到旧 SSID 并稳定下来）则丢弃。
+    def _confirm_due(self) -> bool:
+        if self.confirm_delay_seconds <= 0:
+            return True
+        if self._pending_since is None:
+            return True
+        return self._time_fn() - self._pending_since >= self.confirm_delay_seconds
+
+    @staticmethod
+    def _same_change(left: Dict[str, object], right: Dict[str, object]) -> bool:
+        return (
+            left.get("type") == right.get("type")
+            and left.get("previous_ssid") == right.get("previous_ssid")
+            and left.get("current_ssid") == right.get("current_ssid")
+        )
+
+    def _hold_or_release(
+        self, candidate: Dict[str, object]
+    ) -> Optional[Dict[str, object]]:
+        """挂起候选事件，到期返回它，否则返回 None。"""
+        if self.confirm_delay_seconds <= 0:
+            return candidate
+        if self._pending_event is not None and self._same_change(
+            self._pending_event, candidate
+        ):
+            if self._confirm_due():
+                self._pending_event = None
+                self._pending_since = None
+                return candidate
+            return None
+        self._pending_event = candidate
+        self._pending_since = self._time_fn()
+        return None
+
     def _process_state(self, state: WifiState) -> None:
-        event: Optional[Dict[str, object]] = None
+        to_dispatch: Optional[Dict[str, object]] = None
 
         with self._lock:
             self.current_state = state
@@ -284,50 +341,64 @@ class WifiMonitor(threading.Thread):
             if self._stable_count < self.debounce_count:
                 return
 
-            # This stable state is already the confirmed one; nothing changed.
+            # This stable state is already the confirmed one; nothing
+            # changed — but a pending change may now be due for release
+            # if the current reading still matches what it promised.
             if self._confirmed_key == state.key:
-                return
-
-            is_first_stable = self._confirmed_key is None
-            self._confirmed_key = state.key
-
-            new_ssid = state.ssid if state.connected else None
-            previous_ssid = self.current_ssid
-            self.previous_ssid = previous_ssid
-            self.current_ssid = new_ssid
-
-            if is_first_stable:
-                # The first stable reading after startup only sets the
-                # baseline, so launching the app while already connected
-                # does not fire rules. Later transitions report this
-                # baseline as their previous_ssid.
-                return
-
-            if previous_ssid is None and new_ssid is not None:
-                event_type = "on_connect"
-            elif previous_ssid is not None and new_ssid is None:
-                event_type = "on_disconnect"
-            elif (
-                previous_ssid is not None
-                and new_ssid is not None
-                and previous_ssid != new_ssid
-            ):
-                event_type = "on_switch"
+                if self._pending_event is not None:
+                    now_ssid = state.ssid if state.connected else None
+                    if self._pending_event.get("current_ssid") == now_ssid:
+                        if self._confirm_due():
+                            to_dispatch = self._pending_event
+                            self._pending_event = None
+                            self._pending_since = None
+                    else:
+                        # 变化没能稳定住（又回到了旧状态），丢弃挂起事件。
+                        self._pending_event = None
+                        self._pending_since = None
+                # Fall through to dispatch outside the lock.
             else:
-                return
+                is_first_stable = self._confirmed_key is None
+                self._confirmed_key = state.key
 
-            event = {
-                "type": event_type,
-                "previous_ssid": previous_ssid,
-                "current_ssid": new_ssid,
-                "state": state,
-                "timestamp": time.time(),
-            }
+                new_ssid = state.ssid if state.connected else None
+                previous_ssid = self.current_ssid
+                self.previous_ssid = previous_ssid
+                self.current_ssid = new_ssid
+
+                if is_first_stable:
+                    # The first stable reading after startup only sets the
+                    # baseline, so launching the app while already connected
+                    # does not fire rules. Later transitions report this
+                    # baseline as their previous_ssid.
+                    return
+
+                if previous_ssid is None and new_ssid is not None:
+                    event_type = "on_connect"
+                elif previous_ssid is not None and new_ssid is None:
+                    event_type = "on_disconnect"
+                elif (
+                    previous_ssid is not None
+                    and new_ssid is not None
+                    and previous_ssid != new_ssid
+                ):
+                    event_type = "on_switch"
+                else:
+                    return
+
+                candidate = {
+                    "type": event_type,
+                    "previous_ssid": previous_ssid,
+                    "current_ssid": new_ssid,
+                    "state": state,
+                    "timestamp": time.time(),
+                }
+                to_dispatch = self._hold_or_release(candidate)
 
         # Dispatch outside the lock: handlers perform HTTP calls and
         # sleeps and must never block state processing.
-        if event is not None:
-            self._dispatch_event(event)
+        if to_dispatch is not None:
+            self._dispatch_event(to_dispatch)
 
 
 # -- netsh SSID listings (rule-editor candidates) -------------------------

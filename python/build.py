@@ -31,13 +31,24 @@ def main() -> int:
         "--onefile",
         "--noconsole",
         "--name",
-        "WiFi-Looking",
+        "XiaoMaLink",
         "--icon",
         str(ROOT / "assets" / "app.ico"),
         "--add-data",
         f"{ROOT / 'assets'};assets",
-        str(ROOT / "main.py"),
     ]
+    # 系统动作依赖为惰性导入，PyInstaller 静态分析不到；显式声明
+    # hidden-import 确保打包后 bluetooth.set / brightness.set / volume.set
+    # 可用（P0-2 修复）。依赖清单见 requirements-windows.txt。
+    for module in (
+        "winsdk.windows.devices.radios",
+        "wmi",
+        "monitorcontrol",
+        "pycaw.pycaw",
+        "comtypes",
+    ):
+        command += ["--hidden-import", module]
+    command.append(str(ROOT / "main.py"))
 
     print(" ".join(command))
     result = subprocess.run(command, cwd=ROOT)
