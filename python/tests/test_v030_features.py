@@ -579,8 +579,10 @@ class QuickAddGuiTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_form_defaults_to_kill_process(self) -> None:
+        # The single-action dropdown is gone; an empty form now falls
+        # back to the same default (关闭 ClashMi / kill_process).
         self.assertEqual(
-            self.window.action_combo.currentText(), "关闭 ClashMi（结束进程）"
+            self.window._read_actions(), [{"type": ACTION_KILL_PROCESS}]
         )
 
     def test_quick_add_creates_pair(self) -> None:

@@ -86,8 +86,8 @@ class ActionEditorP0Tests(unittest.TestCase):
         ])
         self.window._add_rule()
         self.window._set_action_list([])
-        self.window.table.clearSelection()
-        self.window.table.selectRow(0)
+        self.window.rule_list.clearSelection()
+        self.window.rule_list.setCurrentRow(0)
         self.window._load_selected_rule()
         self.assertEqual(
             self.window._current_action_list(),

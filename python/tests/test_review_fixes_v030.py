@@ -712,12 +712,10 @@ class GuiReviewTests(unittest.TestCase):
 
             window.event_combo.setCurrentText("断开 Wi-Fi 时")
             window.source_edit.setText("Library")
-            window.action_combo.setCurrentText("断开 ClashMi 连接")
+            window._set_action_list([{"type": ACTION_CLOSE_CONNECTIONS}])
             window._add_rule()
             before = manager.get_rules()[0]
-            window.table.selectRow(0)
-            item = window.table.item(0, 0)
-            item.setCheckState(Qt.CheckState.Unchecked)
+            window._rule_rows()[0].enabled_switch.setChecked(False)
             after = manager.get_rules()[0]
             self.assertIsNot(before, after)
             self.assertFalse(after["enabled"])

@@ -105,11 +105,17 @@ class MainWindowRuleTests(unittest.TestCase):
     # -- tests ------------------------------------------------------------
 
     def test_seeded_rules_shown_with_full_ssid_lists(self) -> None:
-        self.assertEqual(self.window.table.rowCount(), 2)
-        self.assertEqual(self.window.table.item(0, 1).text(), EVENT_LABELS[EVENT_DISCONNECT])
-        self.assertEqual(self.window.table.item(0, 2).text(), "Xms, Xms 5G")
-        self.assertEqual(self.window.table.item(1, 1).text(), EVENT_LABELS[EVENT_SWITCH])
-        self.assertEqual(self.window.table.item(1, 3).text(), "*")
+        self.assertEqual(self.window.rule_list.count(), 2)
+        rules = self.rules()
+        self.assertEqual(rules[0]["when"]["event"], EVENT_DISCONNECT)
+        self.assertEqual(rules[1]["when"]["event"], EVENT_SWITCH)
+        rows = self.window._rule_rows()
+        # 精确断言整句：触发时机措辞、完整 SSID 名单与动作都不能丢。
+        self.assertEqual(rows[0].text_label.text(), "从 Xms, Xms 5G 断开时断开 ClashMi 连接")
+        self.assertEqual(
+            rows[1].text_label.text(),
+            "从 Xms, Xms 5G 切换到 任意网络 时断开 ClashMi 连接",
+        )
 
     def test_add_switch_rule_with_multiple_ssids(self) -> None:
         self.set_form(EVENT_SWITCH, "Home, Home 5G", "*")
@@ -137,7 +143,7 @@ class MainWindowRuleTests(unittest.TestCase):
         self.assertNotIn("previous_ssid", rule["when"])
 
     def test_update_preserves_ssid_list(self) -> None:
-        self.window.table.selectRow(0)
+        self.window.rule_list.setCurrentRow(0)
         self.assertEqual(self.window.source_edit.text(), "Xms, Xms 5G")
         self.window.cooldown_spin.setValue(30)
         self.window._update_selected_rule()
@@ -146,7 +152,7 @@ class MainWindowRuleTests(unittest.TestCase):
         self.assertEqual(rule["cooldown_seconds"], 30)
 
     def test_update_event_type_removes_stale_keys(self) -> None:
-        self.window.table.selectRow(0)  # disconnect rule
+        self.window.rule_list.setCurrentRow(0)  # disconnect rule
         self.set_form(EVENT_CONNECT, "", "Xms")
         self.window._update_selected_rule()
         rule = self.rules()[0]
@@ -159,9 +165,7 @@ class MainWindowRuleTests(unittest.TestCase):
         # The seeded switch rule uses close_connections; the form's
         # default action is kill_process since v0.3.0, so pin the form
         # to the seeded rule's action for a true duplicate.
-        self.window.action_combo.setCurrentText(
-            ACTION_LABELS[ACTION_CLOSE_CONNECTIONS]
-        )
+        self.window._set_action_list([{"type": ACTION_CLOSE_CONNECTIONS}])
         self.window._add_rule()
         self.assertEqual(len(self.rules()), 2)
 
@@ -181,7 +185,7 @@ class MainWindowRuleTests(unittest.TestCase):
             {"type": "clashmi.close_connections"},
             {"type": "clashmi.disable_tun"},
         ]
-        self.window.table.selectRow(0)
+        self.window.rule_list.setCurrentRow(0)
         self.window.cooldown_spin.setValue(45)
         self.window._update_selected_rule()
         rule = self.rules()[0]
@@ -197,23 +201,49 @@ class MainWindowRuleTests(unittest.TestCase):
             {"type": "clashmi.disable_tun"},
         ]
         self.window.refresh_rules()
-        self.assertIn("关闭 ClashMi TUN", self.window.table.item(0, 4).text())
+        self.assertIn("关闭 ClashMi TUN", self.window._rule_rows()[0].text_label.text())
 
     def test_duplicate_detection_ignores_ssid_order(self) -> None:
         self.set_form(EVENT_SWITCH, "Xms 5G, Xms", "*")
-        self.window.action_combo.setCurrentText(
-            ACTION_LABELS[ACTION_CLOSE_CONNECTIONS]
-        )
+        self.window._set_action_list([{"type": ACTION_CLOSE_CONNECTIONS}])
         self.window._add_rule()
         self.assertEqual(len(self.rules()), 2)
 
     def test_uncheck_disables_rule_and_saves(self) -> None:
-        item = self.window.table.item(0, 0)
-        item.setCheckState(Qt.CheckState.Unchecked)
+        self.window._rule_rows()[0].enabled_switch.setChecked(False)
         self.assertFalse(self.rules()[0]["enabled"])
+        self.assertEqual(self.window.rule_count_label.text(), "· 1 条启用中")
         reloaded = ConfigManager(self.config_manager.config_path)
         reloaded.load()
         self.assertFalse(reloaded.get_rules()[0]["enabled"])
+
+    def test_save_keeps_selection_and_actions(self) -> None:
+        """P1-1 回归：保存后选中与动作列表不丢，连续保存不新增规则。"""
+        self.window.rule_list.setCurrentRow(1)
+        self.assertEqual(self.window._selected_rule_id(), "xms-to-other-close-clash")
+        actions = self.window._current_action_list()
+        self.assertEqual(actions, [{"type": ACTION_CLOSE_CONNECTIONS}])
+        self.window.cooldown_spin.setValue(33)
+        self.window._save_rule()
+        self.assertEqual(self.window._selected_rule_id(), "xms-to-other-close-clash")
+        self.assertEqual(self.window._current_action_list(), actions)
+        self.assertEqual(len(self.rules()), 2)
+        self.assertEqual(self.rules()[1]["cooldown_seconds"], 33)
+        # 第二次连续保存：仍然更新原规则，不得静默新增。
+        self.window._save_rule()
+        self.assertEqual(len(self.rules()), 2)
+        self.assertEqual(self.window._selected_rule_id(), "xms-to-other-close-clash")
+        self.assertEqual(self.window._current_action_list(), actions)
+
+    def test_saving_empty_action_list_does_not_revive_old_actions(self) -> None:
+        """P2-9 回归：删空动作后保存不得静默恢复旧动作。"""
+        self.window.rule_list.setCurrentRow(0)
+        original_actions = self.rules()[0]["actions"]
+        self.window._set_action_list([])
+        self.window.cooldown_spin.setValue(50)
+        self.window._update_selected_rule()
+        self.assertEqual(self.rules()[0]["actions"], original_actions)
+        self.assertEqual(self.rules()[0]["cooldown_seconds"], 15)
 
 
 if __name__ == "__main__":
