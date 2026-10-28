@@ -13,7 +13,7 @@ from ssid_utils import normalize_ssid
 
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 
 DEFAULT_CONFIG: Dict[str, Any] = {

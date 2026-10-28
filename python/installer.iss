@@ -2,7 +2,7 @@
 ; NOTE: this file must be UTF-8 with BOM (Inno Setup 6 interprets
 ; non-ASCII text as ANSI otherwise, garbling the Chinese task text).
 #define MyAppName "小马联动"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "XiaoMaLink"
 #define MyAppExeName "XiaoMaLink.exe"
 
@@ -17,7 +17,7 @@ UsePreviousAppDir=yes
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 OutputDir=dist
-OutputBaseFilename=XiaoMaLink_Setup_v1.0.0
+OutputBaseFilename=XiaoMaLink_Setup_v1.1.0
 SetupIconFile=assets\app.ico
 Compression=lzma2
 SolidCompression=yes

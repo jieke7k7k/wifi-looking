@@ -7,18 +7,25 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter, QPen
+from PySide6.QtCore import QPointF, QSignalBlocker, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QIcon,
+    QPainter,
+    QPen,
+    QPixmap,
+    QPolygonF,
+    QStandardItem,
+    QStandardItemModel,
+)
 from PySide6.QtWidgets import (
-    QAbstractItemView,
+    QAbstractButton,
     QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
-    QDialogButtonBox,
-    QFormLayout,
+    QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -26,17 +33,17 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
+    QStyle,
+    QStyleOptionSpinBox,
     QSystemTrayIcon,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from clashmi import ClashMiClient, ClashMiError
 from ssid_utils import normalize_ssid, normalized_ssid_set
-from system_actions import ACTION_TYPES as SYSTEM_ACTION_TYPES
 from wifi_monitor import collect_ssid_candidates
 
 if TYPE_CHECKING:
@@ -62,7 +69,6 @@ ACTION_LABELS = {
     ACTION_DISABLE_TUN: "关闭 ClashMi TUN",
     ACTION_KILL_PROCESS: "关闭 ClashMi（结束进程）",
 }
-LABEL_TO_ACTION = {v: k for k, v in ACTION_LABELS.items()}
 
 # P0-1：动作编辑器需要覆盖「全量动作清单」，而不仅是 3 个 ClashMi 动作。
 _ACTION_TYPE_LABELS = {
@@ -132,6 +138,370 @@ EVENT_LABELS = {
 }
 LABEL_TO_EVENT = {v: k for k, v in EVENT_LABELS.items()}
 
+# 动作类型分组（添加动作对话框下拉按组展示）。
+_ACTION_GROUPS: List[tuple] = [
+    ("ClashMi", [ACTION_CLOSE_CONNECTIONS, ACTION_DISABLE_TUN, ACTION_KILL_PROCESS]),
+    ("网络", ["wifi.set", "bluetooth.set"]),
+    ("显示", ["brightness.set", "dark_mode.set", "wallpaper.set"]),
+    ("声音", ["volume.set", "volume.mute", "audio.device.set"]),
+    ("电源", ["power.plan.set", "screen.timeout.set", "sleep", "shutdown", "restart"]),
+    ("程序", ["program.launch", "program.close", "process.kill"]),
+    ("系统", ["dnd.set", "lock_screen"]),
+]
+
+# 全局 Qt Style Sheet：灰阶打底、品牌青绿 #0F766E 只用于核心按钮与开关。
+APP_STYLESHEET = """
+* {
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 13px;
+    color: #3f3f46;
+}
+QMainWindow { background: #fafafa; }
+QDialog { background: #ffffff; }
+QWidget#appRoot { background: #fafafa; }
+QScrollArea { background: #fafafa; border: none; }
+QScrollArea > QWidget > QWidget { background: #fafafa; }
+
+QFrame#card {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+}
+QFrame#pill {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+}
+QFrame#dot {
+    background: #d4d4d8;
+    border: none;
+    border-radius: 4px;
+}
+QFrame#dot[state="ok"] { background: #16a34a; }
+QFrame#dot[state="warn"] { background: #dc2626; }
+QFrame#dot[state="idle"] { background: #d4d4d8; }
+QLabel#h1 { font-size: 18px; font-weight: 600; color: #18181b; }
+QLabel#dialogTitle { font-size: 17px; font-weight: 600; color: #18181b; }
+QLabel#subtitle { font-size: 13px; color: #71717a; }
+QLabel#hint { font-size: 12px; color: #a1a1aa; }
+QLabel#cardTitle { font-size: 15px; font-weight: 600; color: #18181b; }
+QLabel#muted { color: #71717a; }
+QLabel#faint { color: #a1a1aa; }
+QLabel#tag {
+    color: #71717a;
+    background: #f4f4f5;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 12px;
+}
+QLabel#formLabel { color: #3f3f46; }
+QLabel#ruleText { color: #18181b; }
+QLabel#num {
+    background: #f4f4f5;
+    color: #52525b;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QPushButton {
+    background: #ffffff;
+    color: #3f3f46;
+    border: 1px solid #d4d4d8;
+    border-radius: 8px;
+    padding: 0 16px;
+    min-height: 32px;
+}
+QPushButton:hover { border-color: #a1a1aa; background: #fafafa; }
+QPushButton:pressed { background: #f4f4f5; }
+
+QPushButton[role="outline"] {
+    background: #ffffff;
+    color: #3f3f46;
+    border: 1px solid #d4d4d8;
+}
+QPushButton[role="outline"]:hover { border-color: #a1a1aa; background: #fafafa; }
+QPushButton[role="outline"]:pressed { background: #f4f4f5; }
+
+QPushButton[role="primary"] {
+    background: #0f766e;
+    border: 1px solid #0f766e;
+    color: #ffffff;
+}
+QPushButton[role="primary"]:hover { background: #115e59; border-color: #115e59; }
+QPushButton[role="primary"]:pressed { background: #0b5d56; border-color: #0b5d56; }
+
+QPushButton[role="tealOutline"] {
+    background: #ffffff;
+    color: #0f766e;
+    border: 1px solid #0f766e;
+}
+QPushButton[role="tealOutline"]:hover { background: #f0fdfa; }
+QPushButton[role="tealOutline"]:pressed { background: #ccfbf1; }
+
+QPushButton[role="dangerText"] {
+    background: transparent;
+    color: #dc2626;
+    border: 1px solid transparent;
+}
+QPushButton[role="dangerText"]:hover { background: #fef2f2; }
+
+QPushButton[role="icon"] {
+    background: transparent;
+    color: #71717a;
+    border: none;
+    border-radius: 6px;
+    padding: 0;
+    min-width: 30px;
+    max-width: 30px;
+    min-height: 30px;
+    max-height: 30px;
+    font-size: 14px;
+}
+QPushButton[role="icon"]:hover { background: #f4f4f5; color: #18181b; }
+
+QLineEdit, QComboBox, QSpinBox {
+    background: #ffffff;
+    color: #18181b;
+    border: 1px solid #d4d4d8;
+    border-radius: 8px;
+    padding: 0 10px;
+    min-height: 32px;
+}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #0f766e; }
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
+    background: #fafafa;
+    color: #a1a1aa;
+}
+
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    selection-background-color: #f4f4f5;
+    selection-color: #18181b;
+    outline: 0;
+}
+QComboBox QAbstractItemView::item { min-height: 30px; padding-left: 8px; }
+QComboBox QAbstractItemView::item:disabled {
+    color: #a1a1aa;
+    background: #fafafa;
+}
+
+QSpinBox { padding-right: 22px; }
+
+QListWidget {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    outline: 0;
+}
+QListWidget::item { border: none; }
+QListWidget::item:hover { background: #fafafa; }
+QListWidget::item:selected { background: #ccfbf1; }
+
+QFrame#dialogSeparator {
+    background: #f4f4f5;
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}
+
+QScrollBar:vertical { background: #ffffff; width: 10px; margin: 0; }
+QScrollBar::handle:vertical {
+    background: #e4e4e7;
+    border-radius: 5px;
+    min-height: 24px;
+}
+QScrollBar::handle:vertical:hover { background: #d4d4d8; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background: #ffffff; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal {
+    background: #e4e4e7;
+    border-radius: 5px;
+    min-width: 24px;
+}
+QScrollBar::handle:horizontal:hover { background: #d4d4d8; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+"""
+
+
+class ArrowSpinBox(QSpinBox):
+    """QSpinBox dressed by the global QSS.
+
+    Once a QSpinBox is styled by a stylesheet Qt stops drawing the native
+    spin arrows (only the button frames remain), so the two triangles are
+    painted on top of the still-clickable native buttons.
+    """
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
+        super().paintEvent(event)
+        if self.buttonSymbols() == QSpinBox.ButtonSymbols.NoButtons:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#71717a" if self.isEnabled() else "#c4c4c8"))
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+        for sub_control, up in (
+            (QStyle.SubControl.SC_SpinBoxUp, True),
+            (QStyle.SubControl.SC_SpinBoxDown, False),
+        ):
+            rect = self.style().subControlRect(
+                QStyle.ComplexControl.CC_SpinBox, option, sub_control, self
+            )
+            if rect.width() <= 4 or rect.height() <= 4:
+                continue
+            cx = rect.center().x()
+            cy = rect.center().y()
+            if up:
+                triangle = QPolygonF(
+                    [
+                        QPointF(cx - 3, cy + 2),
+                        QPointF(cx + 3, cy + 2),
+                        QPointF(cx, cy - 2),
+                    ]
+                )
+            else:
+                triangle = QPolygonF(
+                    [
+                        QPointF(cx - 3, cy - 2),
+                        QPointF(cx + 3, cy - 2),
+                        QPointF(cx, cy + 2),
+                    ]
+                )
+            painter.drawPolygon(triangle)
+        painter.end()
+
+
+class ToggleSwitch(QAbstractButton):
+    """自绘开关：开为青绿、关为灰，圆角轨道 + 白色滑块。"""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(38, 22)
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt override
+        return QSize(38, 22)
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        if not self.isEnabled():
+            track = QColor("#e4e4e7") if self.isChecked() else QColor("#f4f4f5")
+        else:
+            track = QColor("#0f766e") if self.isChecked() else QColor("#d4d4d8")
+        painter.setBrush(track)
+        radius = self.height() / 2
+        painter.drawRoundedRect(0, 0, self.width(), self.height(), radius, radius)
+        knob = self.height() - 4
+        painter.setBrush(QColor("#ffffff"))
+        x = self.width() - knob - 2 if self.isChecked() else 2
+        painter.drawEllipse(x, 2, knob, knob)
+        painter.end()
+
+
+class RuleRowWidget(QWidget):
+    """规则列表单行：开关 + 自然语言句 + 冷却/退出恢复标签 + 编辑/删除图标。"""
+
+    clicked = Signal()
+
+    def __init__(self, rule_id: str, text: str, cooldown: int, restore: bool) -> None:
+        super().__init__(None)
+        self._hover = False
+        self.rule_id = rule_id
+        self.enabled_switch = ToggleSwitch()
+        self.text_label = QLabel(text)
+        self.text_label.setObjectName("ruleText")
+        self.text_label.setWordWrap(True)
+        self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.cooldown_tag = QLabel(f"冷却 {cooldown} 秒")
+        self.cooldown_tag.setObjectName("tag")
+        self.cooldown_tag.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.restore_tag = QLabel("退出恢复")
+        self.restore_tag.setObjectName("tag")
+        self.restore_tag.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.edit_button = self._icon_button("✎")
+        self.delete_button = self._icon_button("✕")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(10)
+        layout.addWidget(self.enabled_switch)
+        layout.addWidget(self.text_label, 1)
+        if cooldown > 0:
+            layout.addWidget(self.cooldown_tag)
+        if restore:
+            layout.addWidget(self.restore_tag)
+        layout.addWidget(self.edit_button)
+        layout.addWidget(self.delete_button)
+
+    @staticmethod
+    def _icon_button(text: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setProperty("role", "icon")
+        return button
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt override
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
+    def enterEvent(self, event) -> None:  # noqa: N802 - Qt override
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802 - Qt override
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
+        if self._hover:
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), QColor("#fafafa"))
+        super().paintEvent(event)
+
+
+class ActionStepWidget(QWidget):
+    """动作序列单步：编号 + 人话短语 + 上移/下移/删除图标。"""
+
+    def __init__(self, number: int, text: str) -> None:
+        super().__init__(None)
+        # 整行对鼠标透明（按钮除外），让单击选中、双击编辑直接落到列表项上。
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.number_label = QLabel(str(number))
+        self.number_label.setObjectName("num")
+        self.number_label.setFixedSize(22, 22)
+        self.number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.number_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.text_label = QLabel(text)
+        self.text_label.setObjectName("ruleText")
+        self.text_label.setWordWrap(True)
+        self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.up_button = self._icon_button("↑")
+        self.down_button = self._icon_button("↓")
+        self.delete_button = self._icon_button("✕")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(10)
+        layout.addWidget(self.number_label)
+        layout.addWidget(self.text_label, 1)
+        layout.addWidget(self.up_button)
+        layout.addWidget(self.down_button)
+        layout.addWidget(self.delete_button)
+
+    @staticmethod
+    def _icon_button(text: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setProperty("role", "icon")
+        return button
+
 
 def _base_dir() -> Path:
     """Directory that bundled data files (assets/) are read from."""
@@ -171,48 +541,116 @@ class ActionEditorDialog(QDialog):
 
     def __init__(self, parent=None, action: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("动作")
+        self.setWindowTitle("添加动作")
+        self.setMinimumWidth(480)
         self._param_widgets: Dict[str, QWidget] = {}
 
         root = QVBoxLayout(self)
-        type_row = QHBoxLayout()
-        type_row.addWidget(QLabel("动作类型"))
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        head = QVBoxLayout()
+        head.setContentsMargins(24, 20, 24, 0)
+        head.setSpacing(4)
+        title = QLabel("添加动作")
+        title.setObjectName("dialogTitle")
+        subtitle = QLabel("选一个动作，填好参数，它会按顺序执行")
+        subtitle.setObjectName("subtitle")
+        head.addWidget(title)
+        head.addWidget(subtitle)
+        root.addLayout(head)
+
+        body = QVBoxLayout()
+        body.setContentsMargins(24, 20, 24, 20)
+        body.setSpacing(16)
+
+        type_label = QLabel("动作类型")
+        type_label.setObjectName("formLabel")
         self.type_combo = QComboBox()
-        ordered_types = list(ACTION_LABELS.keys()) + [
-            t for t in SYSTEM_ACTION_TYPES if t not in ACTION_LABELS
-        ]
-        for action_type in ordered_types:
-            self.type_combo.addItem(
-                _ACTION_TYPE_LABELS.get(action_type, action_type), action_type
-            )
+        self.type_combo.setModel(self._build_type_model())
         self.type_combo.currentIndexChanged.connect(self._rebuild_params)
-        type_row.addWidget(self.type_combo, 1)
-        root.addLayout(type_row)
+        body.addWidget(type_label)
+        body.addWidget(self.type_combo)
 
         self._params_box = QVBoxLayout()
-        root.addLayout(self._params_box)
+        self._params_box.setSpacing(10)
+        body.addLayout(self._params_box)
+        body.addStretch(1)
+        root.addLayout(body)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
+        separator = QFrame()
+        separator.setObjectName("dialogSeparator")
+        separator.setFrameShape(QFrame.Shape.NoFrame)
+        root.addWidget(separator)
+
+        foot = QHBoxLayout()
+        foot.setContentsMargins(24, 16, 24, 16)
+        foot.setSpacing(8)
+        foot.addStretch(1)
+        cancel_button = QPushButton("取消")
+        cancel_button.clicked.connect(self.reject)
+        ok_button = QPushButton("确定")
+        ok_button.setProperty("role", "primary")
+        ok_button.setDefault(True)
+        ok_button.clicked.connect(self.accept)
+        foot.addWidget(cancel_button)
+        foot.addWidget(ok_button)
+        root.addLayout(foot)
 
         if action is not None:
-            index = self.type_combo.findData(action.get("type"))
-            if index >= 0:
-                self.type_combo.setCurrentIndex(index)
+            self._select_type(action.get("type"))
+        else:
+            first = self._first_action_index()
+            if first >= 0:
+                self.type_combo.setCurrentIndex(first)
         self._rebuild_params()
         if action is not None:
             self._load_action(action)
 
+    @staticmethod
+    def _build_type_model() -> QStandardItemModel:
+        """按分组构建动作类型下拉：组标题为禁用项，仅作视觉分组。"""
+        model = QStandardItemModel()
+        for group_name, action_types in _ACTION_GROUPS:
+            header = QStandardItem(group_name)
+            header.setEnabled(False)
+            header.setSelectable(False)
+            model.appendRow(header)
+            for action_type in action_types:
+                item = QStandardItem(_ACTION_TYPE_LABELS.get(action_type, action_type))
+                item.setData(action_type, Qt.ItemDataRole.UserRole)
+                model.appendRow(item)
+        return model
+
+    def _first_action_index(self) -> int:
+        for index in range(self.type_combo.count()):
+            if self.type_combo.itemData(index):
+                return index
+        return -1
+
+    def _select_type(self, action_type: Any) -> None:
+        for index in range(self.type_combo.count()):
+            if self.type_combo.itemData(index) == action_type:
+                self.type_combo.setCurrentIndex(index)
+                return
+
     def _clear_params(self) -> None:
-        while self._params_box.count():
-            item = self._params_box.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        def clear_layout(layout) -> None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    # 先摘掉父级再 deleteLater：切换动作类型时旧参数
+                    # 控件必须立即消失，不能等下一轮事件循环。
+                    widget.hide()
+                    widget.setParent(None)
+                    widget.deleteLater()
+                    continue
+                child = item.layout()
+                if child is not None:
+                    clear_layout(child)
+
+        clear_layout(self._params_box)
         self._param_widgets = {}
 
     def _rebuild_params(self, *args) -> None:
@@ -226,7 +664,7 @@ class ActionEditorDialog(QDialog):
                 widget = QCheckBox("是")
                 widget.setChecked(bool(spec.get("default")))
             elif kind == "int":
-                widget = QSpinBox()
+                widget = ArrowSpinBox()
                 widget.setRange(int(spec.get("min", 0)), int(spec.get("max", 100000)))
                 widget.setValue(int(spec.get("default", 0)))
             elif kind == "choice":
@@ -238,10 +676,15 @@ class ActionEditorDialog(QDialog):
             else:
                 widget = QLineEdit()
                 widget.setText(str(spec.get("default", "")))
-            row = QHBoxLayout()
-            row.addWidget(label)
-            row.addWidget(widget, 1)
-            self._params_box.addLayout(row)
+            field = QVBoxLayout()
+            field.setSpacing(6)
+            field.addWidget(label)
+            field.addWidget(widget)
+            if kind == "int":
+                hint = QLabel(f"范围 {spec.get('min', 0)}–{spec.get('max', 0)}")
+                hint.setObjectName("hint")
+                field.addWidget(hint)
+            self._params_box.addLayout(field)
             self._param_widgets[spec["key"]] = widget
 
     def _load_action(self, action: Dict[str, Any]) -> None:
@@ -349,7 +792,6 @@ class MainWindow(QMainWindow):
         self.config_manager = config_manager
         self.monitor = monitor
         self._on_rules_changed = on_rules_changed
-        self._updating_table = False
         self._tray_icon = None
         self._rules_by_id: Dict[str, Dict[str, Any]] = {}
         self._startup_guard_started = False
@@ -359,154 +801,255 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(f"小马联动 v{APP_VERSION}")
         self.setWindowIcon(self.create_icon())
-        self.resize(880, 540)
+        self.setStyleSheet(APP_STYLESHEET)
+        self.resize(880, 880)
+        self.setMinimumSize(760, 620)
 
+        # -- header -----------------------------------------------------
         title_label = QLabel("Wi-Fi 触发规则")
-        title_label.setStyleSheet("font-size: 18px; font-weight: 600;")
+        title_label.setObjectName("h1")
+        subtitle_label = QLabel("按网络变化和程序状态，自动执行你定好的动作")
+        subtitle_label.setObjectName("subtitle")
+        subtitle_label.setWordWrap(True)
 
         self.status_label = QLabel("当前 Wi-Fi：读取中…")
         self.clashmi_label = QLabel("ClashMi：检测中…")
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
-            ["启用", "触发时机", "来源 SSID", "目标 SSID", "动作", "冷却(秒)"]
-        )
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.table.itemSelectionChanged.connect(self._load_selected_rule)
-        self.table.itemChanged.connect(self._table_item_changed)
+        header_layout = QHBoxLayout()
+        header_left = QVBoxLayout()
+        header_left.setSpacing(4)
+        header_left.addWidget(title_label)
+        header_left.addWidget(subtitle_label)
+        header_layout.addLayout(header_left, 1)
+        self.status_pill, self.status_dot = self._make_pill(self.status_label)
+        self.clashmi_pill, self.clashmi_dot = self._make_pill(self.clashmi_label)
+        header_layout.addWidget(self.status_pill)
+        header_layout.addWidget(self.clashmi_pill)
 
+        # -- rules card -------------------------------------------------
+        rules_card = QFrame()
+        rules_card.setObjectName("card")
+        rules_card_layout = QVBoxLayout(rules_card)
+        rules_card_layout.setContentsMargins(20, 20, 20, 16)
+        rules_card_layout.setSpacing(12)
+
+        rules_head = QHBoxLayout()
+        rules_head.setSpacing(8)
+        rules_title = QLabel("规则")
+        rules_title.setObjectName("cardTitle")
+        self.rule_count_label = QLabel("")
+        self.rule_count_label.setObjectName("muted")
+        self.add_rule_button = QPushButton("＋ 添加规则")
+        self.add_rule_button.setProperty("role", "primary")
+        self.add_rule_button.clicked.connect(self._add_rule)
+        rules_head.addWidget(rules_title)
+        rules_head.addWidget(self.rule_count_label)
+        rules_head.addStretch(1)
+        rules_head.addWidget(self.add_rule_button)
+        rules_card_layout.addLayout(rules_head)
+
+        self.rule_list = QListWidget()
+        self.rule_list.setObjectName("ruleList")
+        self.rule_list.setMinimumHeight(140)
+        self.rule_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.rule_list.currentRowChanged.connect(self._on_rule_row_changed)
+        rules_card_layout.addWidget(self.rule_list)
+
+        self.empty_state = QWidget()
+        empty_layout = QVBoxLayout(self.empty_state)
+        empty_layout.setContentsMargins(0, 28, 0, 28)
+        empty_layout.setSpacing(10)
+        empty_title = QLabel("还没有规则")
+        empty_title.setObjectName("cardTitle")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_hint = QLabel("连接指定 Wi-Fi 时，自动执行你定好的动作")
+        empty_hint.setObjectName("muted")
+        empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_quick_add_button = QPushButton("一键添加当前 Wi-Fi")
+        self.empty_quick_add_button.setProperty("role", "outline")
+        self.empty_quick_add_button.clicked.connect(self._quick_add_current_wifi)
+        empty_quick_row = QHBoxLayout()
+        empty_quick_row.addStretch(1)
+        empty_quick_row.addWidget(self.empty_quick_add_button)
+        empty_quick_row.addStretch(1)
+        empty_layout.addStretch(1)
+        empty_layout.addWidget(empty_title)
+        empty_layout.addWidget(empty_hint)
+        empty_layout.addLayout(empty_quick_row)
+        empty_layout.addStretch(1)
+        rules_card_layout.addWidget(self.empty_state)
+
+        # -- editor card ------------------------------------------------
+        editor_card = QFrame()
+        editor_card.setObjectName("card")
+        editor_layout = QVBoxLayout(editor_card)
+        editor_layout.setContentsMargins(20, 20, 20, 20)
+        editor_layout.setSpacing(12)
+
+        editor_head = QHBoxLayout()
+        editor_title = QLabel("编辑规则")
+        editor_title.setObjectName("cardTitle")
+        self.test_rule_button = QPushButton("▶ 立即测试")
+        self.test_rule_button.setProperty("role", "tealOutline")
+        self.test_rule_button.clicked.connect(self._test_selected_rule)
+        editor_head.addWidget(editor_title)
+        editor_head.addStretch(1)
+        editor_head.addWidget(self.test_rule_button)
+        editor_layout.addLayout(editor_head)
+
+        # 触发时机 + 程序名
+        trigger_row = QHBoxLayout()
+        trigger_row.setSpacing(8)
         event_label = QLabel("触发时机")
+        event_label.setObjectName("formLabel")
         self.event_combo = QComboBox()
         self.event_combo.addItems(list(EVENT_LABELS.values()))
         self.event_combo.currentTextChanged.connect(self._on_event_changed)
+        program_label = QLabel("程序名")
+        program_label.setObjectName("formLabel")
+        self.program_edit = SsidComboBox()
+        self.program_edit.setEditable(True)
+        self.program_edit.lineEdit().setPlaceholderText("例如 wegame.exe / cloudmusic.exe")
+        trigger_row.addWidget(event_label)
+        trigger_row.addWidget(self.event_combo, 1)
+        trigger_row.addSpacing(12)
+        trigger_row.addWidget(program_label)
+        trigger_row.addWidget(self.program_edit, 1)
+        editor_layout.addLayout(trigger_row)
 
+        # 来源 / 目标 SSID（Wi-Fi 类触发条件使用）
+        ssid_row = QHBoxLayout()
+        ssid_row.setSpacing(8)
         source_label = QLabel("来源 SSID")
+        source_label.setObjectName("formLabel")
         self.source_edit = SsidComboBox()
         self.source_edit.setEditable(True)
         self.source_edit.lineEdit().setPlaceholderText("下拉选择或手动输入（多个用逗号分隔）")
-
         target_label = QLabel("目标 SSID")
+        target_label.setObjectName("formLabel")
         self.target_edit = SsidComboBox()
         self.target_edit.setEditable(True)
         self.target_edit.lineEdit().setPlaceholderText("下拉选择，或 *（任意）")
+        ssid_row.addWidget(source_label)
+        ssid_row.addWidget(self.source_edit, 1)
+        ssid_row.addSpacing(12)
+        ssid_row.addWidget(target_label)
+        ssid_row.addWidget(self.target_edit, 1)
+        editor_layout.addLayout(ssid_row)
 
-        program_label = QLabel("程序名")
-        self.program_edit = QLineEdit()
-        self.program_edit.setPlaceholderText("例如 wegame.exe / cloudmusic.exe")
+        # 动作序列
+        actions_head = QHBoxLayout()
+        actions_head.setSpacing(8)
+        actions_label = QLabel("动作序列")
+        actions_label.setObjectName("formLabel")
+        actions_hint = QLabel("按顺序执行，双击可编辑单条")
+        actions_hint.setObjectName("muted")
+        actions_head.addWidget(actions_label)
+        actions_head.addWidget(actions_hint)
+        actions_head.addStretch(1)
+        editor_layout.addLayout(actions_head)
 
-        action_label = QLabel("动作")
-        self.action_combo = QComboBox()
-        self.action_combo.addItems(list(ACTION_LABELS.values()))
-        # New rules default to turning ClashMi off (v0.3.0): that is
-        # the action the one-click button uses too.
-        self.action_combo.setCurrentText(ACTION_LABELS[ACTION_KILL_PROCESS])
-
-        # P0-1：有序动作序列编辑器。
         self.action_list = QListWidget()
-        self.action_list.setMinimumHeight(72)
+        self.action_list.setObjectName("steps")
+        self.action_list.setMinimumHeight(44)
         self.action_list.itemDoubleClicked.connect(self._edit_action_item)
+        editor_layout.addWidget(self.action_list)
 
-        self.add_action_button = QPushButton("添加动作")
+        add_action_row = QHBoxLayout()
+        self.add_action_button = QPushButton("＋ 添加动作")
+        self.add_action_button.setProperty("role", "outline")
         self.add_action_button.clicked.connect(self._add_action_to_list)
-        self.remove_action_button = QPushButton("删除动作")
-        self.remove_action_button.clicked.connect(self._remove_selected_action)
-        self.up_action_button = QPushButton("上移")
-        self.up_action_button.clicked.connect(lambda: self._move_action(-1))
-        self.down_action_button = QPushButton("下移")
-        self.down_action_button.clicked.connect(lambda: self._move_action(1))
+        add_action_row.addWidget(self.add_action_button)
+        add_action_row.addStretch(1)
+        editor_layout.addLayout(add_action_row)
 
-        action_buttons = QHBoxLayout()
-        action_buttons.addWidget(self.add_action_button)
-        action_buttons.addWidget(self.remove_action_button)
-        action_buttons.addWidget(self.up_action_button)
-        action_buttons.addWidget(self.down_action_button)
-        action_buttons.addStretch(1)
-
-        self.test_rule_button = QPushButton("▶ 立即测试")
-        self.test_rule_button.clicked.connect(self._test_selected_rule)
-
-        cooldown_label = QLabel("冷却(秒)")
-        self.cooldown_spin = QSpinBox()
+        # 冷却 + 开关
+        opt_row = QHBoxLayout()
+        opt_row.setSpacing(24)
+        cooldown_label = QLabel("冷却（秒）")
+        cooldown_label.setObjectName("formLabel")
+        self.cooldown_spin = ArrowSpinBox()
         self.cooldown_spin.setRange(0, 86400)
         self.cooldown_spin.setValue(10)
+        self.cooldown_spin.setFixedWidth(76)
 
-        self.restore_check = QCheckBox("退出时恢复原设置")
+        self.restore_check = ToggleSwitch()
         self.restore_check.setToolTip("程序退出后，自动还原被本规则修改的系统设置")
+        restore_text = QLabel("退出时恢复原设置")
+        restore_text.setObjectName("formLabel")
 
-        self.autostart_check = QCheckBox("开机自动启动（最高权限，静默进入托盘）")
+        self.autostart_check = ToggleSwitch()
         self.autostart_check.setToolTip("通过 Windows 任务计划程序实现，避免开机弹出 UAC 确认框")
         self.autostart_check.toggled.connect(self._on_autostart_toggled)
+        autostart_text = QLabel("开机自动启动")
+        autostart_text.setObjectName("formLabel")
 
-        add_button = QPushButton("添加规则")
-        add_button.clicked.connect(self._add_rule)
+        opt_row.addWidget(cooldown_label)
+        opt_row.addWidget(self.cooldown_spin)
+        opt_row.addSpacing(8)
+        opt_row.addWidget(self.restore_check)
+        opt_row.addWidget(restore_text)
+        opt_row.addSpacing(8)
+        opt_row.addWidget(self.autostart_check)
+        opt_row.addWidget(autostart_text)
+        opt_row.addStretch(1)
+        editor_layout.addLayout(opt_row)
 
-        quick_add_button = QPushButton("一键添加当前 Wi-Fi")
-        quick_add_button.clicked.connect(self._quick_add_current_wifi)
+        # 底部操作
+        foot = QHBoxLayout()
+        foot.setSpacing(8)
+        self.delete_rule_button = QPushButton("删除规则")
+        self.delete_rule_button.setProperty("role", "dangerText")
+        self.delete_rule_button.clicked.connect(self._delete_selected_rule)
+        foot.addWidget(self.delete_rule_button)
+        foot.addStretch(1)
+        self.quick_add_button = QPushButton("一键添加当前 Wi-Fi")
+        self.quick_add_button.setProperty("role", "outline")
+        self.quick_add_button.clicked.connect(self._quick_add_current_wifi)
+        self.test_clashmi_button = QPushButton("测试 ClashMi")
+        self.test_clashmi_button.setProperty("role", "outline")
+        self.test_clashmi_button.clicked.connect(self._test_clashmi)
+        self.refresh_ssid_button = QPushButton("刷新 Wi-Fi 列表")
+        self.refresh_ssid_button.setProperty("role", "outline")
+        self.refresh_ssid_button.setToolTip("重新扫描当前与附近的 Wi-Fi，更新来源/目标下拉候选")
+        self.refresh_ssid_button.clicked.connect(self._refresh_ssid_candidates)
+        self.save_rule_button = QPushButton("保存规则")
+        self.save_rule_button.setProperty("role", "primary")
+        self.save_rule_button.clicked.connect(self._save_rule)
+        foot.addWidget(self.quick_add_button)
+        foot.addWidget(self.refresh_ssid_button)
+        foot.addWidget(self.test_clashmi_button)
+        foot.addWidget(self.save_rule_button)
+        editor_layout.addLayout(foot)
 
-        refresh_candidates_button = QPushButton("刷新 Wi-Fi 列表")
-        refresh_candidates_button.clicked.connect(self._refresh_ssid_candidates)
-
-        update_button = QPushButton("更新选中规则")
-        update_button.clicked.connect(self._update_selected_rule)
-
-        delete_button = QPushButton("删除选中规则")
-        delete_button.clicked.connect(self._delete_selected_rule)
-
-        test_button = QPushButton("测试 ClashMi")
-        test_button.clicked.connect(self._test_clashmi)
-
-        form_layout = QHBoxLayout()
-        form_layout.addWidget(event_label)
-        form_layout.addWidget(self.event_combo)
-        form_layout.addWidget(source_label)
-        form_layout.addWidget(self.source_edit)
-        form_layout.addWidget(target_label)
-        form_layout.addWidget(self.target_edit)
-        form_layout.addWidget(program_label)
-        form_layout.addWidget(self.program_edit)
-
-        form_layout2 = QHBoxLayout()
-        form_layout2.addWidget(action_label)
-        form_layout2.addWidget(self.action_combo)
-        form_layout2.addWidget(cooldown_label)
-        form_layout2.addWidget(self.cooldown_spin)
-        form_layout2.addWidget(self.restore_check)
-        form_layout2.addWidget(add_button)
-        form_layout2.addWidget(update_button)
-        form_layout2.addWidget(delete_button)
-        form_layout2.addWidget(test_button)
-        form_layout2.addWidget(quick_add_button)
-        form_layout2.addWidget(refresh_candidates_button)
-        form_layout2.addStretch(1)
-
+        # -- assemble ---------------------------------------------------
         root_layout = QVBoxLayout()
-        root_layout.addWidget(title_label)
-        root_layout.addWidget(self.status_label)
-        root_layout.addWidget(self.clashmi_label)
-        root_layout.addWidget(self.table)
-        root_layout.addLayout(form_layout)
-        root_layout.addLayout(form_layout2)
-        root_layout.addLayout(action_buttons)
-        root_layout.addWidget(self.action_list)
-        root_layout.addWidget(self.test_rule_button)
-        root_layout.addWidget(self.autostart_check)
+        root_layout.setContentsMargins(24, 16, 24, 16)
+        root_layout.setSpacing(16)
+        root_layout.addLayout(header_layout)
+        root_layout.addWidget(rules_card)
+        root_layout.addWidget(editor_card)
+        root_layout.addStretch(1)
 
-        central_widget = QWidget()
-        central_widget.setLayout(root_layout)
-        self.setCentralWidget(central_widget)
+        content = QWidget()
+        content.setObjectName("appRoot")
+        content.setLayout(root_layout)
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(content)
+        self.setCentralWidget(scroll)
+
+        self._populate_program_candidates()
         self._on_event_changed(self.event_combo.currentText())
-        self._refresh_table()
+        self._refresh_rule_list()
         self._refresh_status()
         self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self._refresh_status)
         self.status_timer.start(1000)
 
-        self._clashmi_auto_result.connect(self.clashmi_label.setText)
+        self._clashmi_auto_result.connect(self._set_clashmi_status)
         self._clashmi_manual_result.connect(self._on_manual_test_result)
         self._ssid_candidates_ready.connect(self._apply_ssid_candidates)
         self._startup_guard_result.connect(self._on_startup_guard_result)
@@ -527,6 +1070,68 @@ class MainWindow(QMainWindow):
         self._auto_test_timer.start(600)
         self._refresh_ssid_candidates()
         self._refresh_autostart_state()
+
+    # -- layout helpers ----------------------------------------------------
+
+    def _make_pill(self, text_label: QLabel) -> "tuple[QFrame, QFrame]":
+        """把状态文本包进一个白底灰边 pill（带可随状态变色的圆点）。"""
+        pill = QFrame()
+        pill.setObjectName("pill")
+        dot = QFrame()
+        dot.setObjectName("dot")
+        dot.setProperty("state", "idle")
+        dot.setFixedSize(8, 8)
+        layout = QHBoxLayout(pill)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(6)
+        layout.addWidget(dot)
+        layout.addWidget(text_label)
+        return pill, dot
+
+    @staticmethod
+    def _set_dot_state(dot: QFrame, state: str) -> None:
+        if dot.property("state") == state:
+            return
+        dot.setProperty("state", state)
+        dot.style().unpolish(dot)
+        dot.style().polish(dot)
+
+    def _set_clashmi_status(self, text: str) -> None:
+        self.clashmi_label.setText(text)
+        if "失败" in text:
+            state = "warn"
+        elif "已连接" in text or "连接成功" in text:
+            state = "ok"
+        else:
+            state = "idle"
+        self._set_dot_state(self.clashmi_dot, state)
+
+    def _populate_program_candidates(self) -> None:
+        """程序名下拉候选：来自 app_detection 的已知程序进程名。"""
+        try:
+            from app_detection import TARGETS
+        except Exception:
+            return
+        for target in TARGETS.values():
+            name = str(target.get("process_name", ""))
+            if name:
+                self.program_edit.addItem(name)
+        # Qt 会把可编辑下拉的首项设为当前文本，Windows 上会预填
+        # wegame.exe，用户不改这一栏就会误建监听 WeGame 的规则。
+        # 候选只用于下拉选择，输入框保持空白。
+        self.program_edit.setCurrentIndex(-1)
+        self.program_edit.setEditText("")
+
+    def _on_rule_row_changed(self, row: int) -> None:
+        del row
+        self._load_selected_rule()
+
+    def _save_rule(self) -> None:
+        """「保存规则」：有选中规则则更新，否则作为新规则添加。"""
+        if self._selected_rule_id() is not None:
+            self._update_selected_rule()
+        else:
+            self._add_rule()
 
     # -- autostart (Task Scheduler) ---------------------------------------
 
@@ -607,9 +1212,12 @@ class MainWindow(QMainWindow):
         state = self.monitor.current_state
         if state is None:
             self.status_label.setText("当前 Wi-Fi：读取中…")
+            self._set_dot_state(self.status_dot, "idle")
         else:
             ssid = state.ssid or "未连接"
             self.status_label.setText(f"当前 Wi-Fi：{ssid}")
+            connected = bool(getattr(state, "connected", False))
+            self._set_dot_state(self.status_dot, "ok" if connected else "idle")
             if not self._candidates_refreshed_for_state:
                 # The candidate collection at startup usually races
                 # the monitor's first read, so the current network —
@@ -637,7 +1245,7 @@ class MainWindow(QMainWindow):
         # The probe can block for seconds (discovery + request timeouts);
         # run it on a worker thread like the automatic startup check so
         # the GUI never freezes or gets flagged "not responding".
-        self.clashmi_label.setText("ClashMi：检测中…")
+        self._set_clashmi_status("ClashMi：检测中…")
 
         def work() -> None:
             try:
@@ -654,11 +1262,11 @@ class MainWindow(QMainWindow):
     def _on_manual_test_result(self, result: Dict[str, Any]) -> None:
         if not result.get("ok"):
             error = str(result.get("error", "未知错误"))
-            self.clashmi_label.setText(f"ClashMi：连接失败（{error}）")
+            self._set_clashmi_status(f"ClashMi：连接失败（{error}）")
             QMessageBox.critical(self, "ClashMi 测试失败", error)
             return
 
-        self.clashmi_label.setText(
+        self._set_clashmi_status(
             f"ClashMi：连接成功，当前活动连接 {result['count']} 个（{result['base_url']}）"
         )
         QMessageBox.information(
@@ -803,7 +1411,7 @@ class MainWindow(QMainWindow):
         if added:
             self.config_manager.set_rules(rules)
             self._save_rules()
-            self._refresh_table()
+            self._refresh_rule_list()
         return added, skipped
 
     # -- startup guard --------------------------------------------------------
@@ -877,56 +1485,120 @@ class MainWindow(QMainWindow):
             )
         QMessageBox.warning(self, "小马联动 提醒", message)
 
-    # -- table ------------------------------------------------------------
+    # -- rule list ----------------------------------------------------------
 
     def refresh_rules(self) -> None:
-        """Rebuild the table from the config manager (e.g. after reload)."""
-        self._refresh_table()
+        """Rebuild the rule list from the config manager (e.g. after reload)."""
+        self._refresh_rule_list()
 
-    def _refresh_table(self) -> None:
-        self._updating_table = True
+    def _refresh_rule_list(self, select_rule_id: Optional[str] = None) -> None:
         rules = self.config_manager.get_rules()
         self._rules_by_id = {
             str(rule.get("id")): rule for rule in rules if rule.get("id")
         }
-        self.table.setRowCount(len(rules))
-        for row, rule in enumerate(rules):
-            when = rule.get("when", {})
-            enabled_item = QTableWidgetItem()
-            enabled_item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled
-                | Qt.ItemFlag.ItemIsSelectable
-                | Qt.ItemFlag.ItemIsUserCheckable
-            )
-            enabled_item.setCheckState(
-                Qt.CheckState.Checked if rule.get("enabled", True) else Qt.CheckState.Unchecked
-            )
-            enabled_item.setData(Qt.ItemDataRole.UserRole, rule.get("id"))
-            self.table.setItem(row, 0, enabled_item)
-            event_type = str(when.get("event", ""))
-            self.table.setItem(row, 1, QTableWidgetItem(EVENT_LABELS.get(event_type, event_type or "-")))
-            source_text = (
-                str(when.get("program", ""))
-                if event_type == EVENT_PROGRAM_START
-                else ", ".join(_ssids_of(when.get("previous_ssid")))
-            )
-            self.table.setItem(row, 2, QTableWidgetItem(source_text))
-            self.table.setItem(row, 3, QTableWidgetItem(", ".join(_ssids_of(when.get("current_ssid")))))
-            action_text = self._describe_rule(
-                when,
-                [a for a in rule.get("actions", []) if isinstance(a, dict)],
-                bool(rule.get("restore_on_exit")),
-            )
-            self.table.setItem(row, 4, QTableWidgetItem(action_text or "-"))
-            self.table.setItem(row, 5, QTableWidgetItem(str(rule.get("cooldown_seconds", 0))))
-        self._updating_table = False
+        # 重建期间必须屏蔽 currentRowChanged：clear() 会先发 -1，
+        # 把编辑器动作列表清空、选中丢失，之后「保存规则」会误走新增。
+        if select_rule_id is None:
+            select_rule_id = self._selected_rule_id()
+        blocker = QSignalBlocker(self.rule_list)
+        try:
+            self.rule_list.clear()
+            for rule in rules:
+                when = rule.get("when", {})
+                text = self._describe_rule(
+                    when,
+                    [a for a in rule.get("actions", []) if isinstance(a, dict)],
+                    bool(rule.get("restore_on_exit")),
+                )
+                rule_id = str(rule.get("id"))
+                row = RuleRowWidget(
+                    rule_id,
+                    text or "无动作",
+                    int(rule.get("cooldown_seconds", 0) or 0),
+                    bool(rule.get("restore_on_exit")),
+                )
+                row.enabled_switch.setChecked(bool(rule.get("enabled", True)))
+                row.clicked.connect(lambda rid=rule_id: self._select_rule_row(rid))
+                row.edit_button.clicked.connect(lambda rid=rule_id: self._edit_rule_row(rid))
+                row.delete_button.clicked.connect(
+                    lambda rid=rule_id: self._delete_rule_by_id(rid)
+                )
+                row.enabled_switch.toggled.connect(
+                    lambda checked, rid=rule_id: self._rule_enabled_toggled(rid, checked)
+                )
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, rule_id)
+                self.rule_list.addItem(item)
+                self.rule_list.setItemWidget(item, row)
+                item.setSizeHint(row.sizeHint())
+        finally:
+            blocker.unblock()
+
+        self._update_rule_count(rules)
+        self._fit_rule_list_height(bool(rules))
+        has_rules = bool(rules)
+        self.rule_list.setVisible(has_rules)
+        self.empty_state.setVisible(not has_rules)
+
+        # 恢复之前的选中；恢复成功后 setCurrentRow 会重新载入该规则
+        # 的编辑器内容，保证选中与动作列表都不丢。
+        restored = bool(select_rule_id) and self._select_rule_row(select_rule_id)
+        if not restored:
+            self._load_selected_rule()
+
+    def _update_rule_count(self, rules: Optional[List[Dict[str, Any]]] = None) -> None:
+        if rules is None:
+            rules = self.config_manager.get_rules()
+        if not rules:
+            self.rule_count_label.setText("")
+            return
+        enabled_count = sum(1 for rule in rules if bool(rule.get("enabled", True)))
+        self.rule_count_label.setText(f"· {enabled_count} 条启用中")
+
+    def _fit_rule_list_height(self, has_rules: bool) -> None:
+        """按行数自适应高度，避免固定 140 高把最后一行截半。"""
+        if not has_rules:
+            self.rule_list.setFixedHeight(0)
+            return
+        visible = min(self.rule_list.count(), 6)
+        total = sum(
+            max(self.rule_list.item(i).sizeHint().height(), 1) for i in range(visible)
+        )
+        total += 2 * self.rule_list.frameWidth()
+        self.rule_list.setFixedHeight(max(total, 44))
+
+    def _rule_rows(self) -> List[RuleRowWidget]:
+        rows: List[RuleRowWidget] = []
+        for index in range(self.rule_list.count()):
+            widget = self.rule_list.itemWidget(self.rule_list.item(index))
+            if isinstance(widget, RuleRowWidget):
+                rows.append(widget)
+        return rows
+
+    def _select_rule_row(self, rule_id: str) -> bool:
+        for index in range(self.rule_list.count()):
+            widget = self.rule_list.itemWidget(self.rule_list.item(index))
+            if isinstance(widget, RuleRowWidget) and widget.rule_id == rule_id:
+                self.rule_list.setCurrentRow(index)
+                return True
+        return False
+
+    def _edit_rule_row(self, rule_id: str) -> None:
+        self._select_rule_row(rule_id)
+        self._load_selected_rule()
+
+    def _delete_rule_by_id(self, rule_id: str) -> None:
+        rules = [rule for rule in self.config_manager.get_rules() if rule.get("id") != rule_id]
+        self.config_manager.set_rules(rules)
+        self._save_rules()
+        self._refresh_rule_list()
 
     def _selected_rule_id(self) -> Optional[str]:
-        row = self.table.currentRow()
+        row = self.rule_list.currentRow()
         if row < 0:
             return None
-        item = self.table.item(row, 0)
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
+        widget = self.rule_list.itemWidget(self.rule_list.item(row))
+        return widget.rule_id if isinstance(widget, RuleRowWidget) else None
 
     def _find_rule(self, rule_id: Optional[str]) -> Optional[Dict[str, Any]]:
         if not rule_id:
@@ -952,9 +1624,6 @@ class MainWindow(QMainWindow):
         self.target_edit.setText(", ".join(_ssids_of(when.get("current_ssid"))))
         self.program_edit.setText(str(when.get("program", "")))
         self.restore_check.setChecked(bool(rule.get("restore_on_exit", False)))
-        action_type = self._first_action_type(rule.get("actions", []))
-        if action_type in ACTION_LABELS:
-            self.action_combo.setCurrentText(ACTION_LABELS[action_type])
         self._set_action_list(rule.get("actions", []))
         try:
             self.cooldown_spin.setValue(int(rule.get("cooldown_seconds", 0) or 0))
@@ -963,26 +1632,48 @@ class MainWindow(QMainWindow):
 
     # -- action sequence editor (P0-1) -----------------------------------
 
-    @staticmethod
-    def _action_display(action: Dict[str, Any]) -> str:
-        action_type = str(action.get("type", ""))
-        label = _ACTION_TYPE_LABELS.get(action_type, action_type)
-        params = []
-        for key in ("enabled", "value", "muted", "mode", "path", "name", "plan", "minutes"):
-            if key in action:
-                params.append(f"{key}={action[key]}")
-        if params:
-            return f"{label}（{', '.join(params)}）"
-        return label
-
     def _set_action_list(self, actions: Any) -> None:
+        self._rebuild_action_list(
+            [a for a in (actions or []) if isinstance(a, dict)]
+        )
+
+    def _rebuild_action_list(self, actions: List[Dict[str, Any]]) -> None:
+        self._clear_action_list()
+        for number, action in enumerate(actions, start=1):
+            self._add_action_row(action, number, number - 1)
+        self._fit_action_list_height()
+
+    def _fit_action_list_height(self) -> None:
+        """按动作条数自适应高度，避免空列表占满一大片空白。"""
+        visible = min(self.action_list.count(), 6)
+        if visible == 0:
+            self.action_list.setFixedHeight(44)
+            return
+        total = sum(
+            max(self.action_list.item(i).sizeHint().height(), 1) for i in range(visible)
+        )
+        total += 2 * self.action_list.frameWidth()
+        self.action_list.setFixedHeight(max(total, 44))
+
+    def _clear_action_list(self) -> None:
+        for index in range(self.action_list.count()):
+            item = self.action_list.item(index)
+            widget = self.action_list.itemWidget(item)
+            if widget is not None:
+                self.action_list.removeItemWidget(item)
+                widget.deleteLater()
         self.action_list.clear()
-        for action in actions or []:
-            if not isinstance(action, dict):
-                continue
-            item = QListWidgetItem(self._action_display(action))
-            item.setData(Qt.ItemDataRole.UserRole, dict(action))
-            self.action_list.addItem(item)
+
+    def _add_action_row(self, action: Dict[str, Any], number: int, index: int) -> None:
+        item = QListWidgetItem()
+        item.setData(Qt.ItemDataRole.UserRole, dict(action))
+        widget = ActionStepWidget(number, self._action_phrase(action))
+        widget.up_button.clicked.connect(lambda *_, i=index: self._move_action_row(i, -1))
+        widget.down_button.clicked.connect(lambda *_, i=index: self._move_action_row(i, 1))
+        widget.delete_button.clicked.connect(lambda *_, i=index: self._delete_action_row(i))
+        self.action_list.addItem(item)
+        self.action_list.setItemWidget(item, widget)
+        item.setSizeHint(widget.sizeHint())
 
     def _current_action_list(self) -> List[Dict[str, Any]]:
         actions: List[Dict[str, Any]] = []
@@ -994,13 +1685,18 @@ class MainWindow(QMainWindow):
         return actions
 
     def _read_actions(self, existing_actions: Any = None) -> List[Dict[str, Any]]:
-        """返回完整动作序列：列表非空取列表，否则保留已有动作或回退单选。"""
+        """返回当前动作列表。
+
+        列表为空时分两种情况：编辑已有规则时返回空列表，由调用方提示
+        用户，绝不把规则里旧的动作静默塞回来；新增规则时沿用默认的
+        关闭 ClashMi 动作。
+        """
         actions = self._current_action_list()
         if actions:
             return actions
-        if existing_actions:
-            return [dict(a) for a in existing_actions if isinstance(a, dict)]
-        return [{"type": LABEL_TO_ACTION[self.action_combo.currentText()]}]
+        if isinstance(existing_actions, dict) and "actions" in existing_actions:
+            return []
+        return [{"type": ACTION_KILL_PROCESS}]
 
     def _add_action_to_list(self) -> None:
         dialog = ActionEditorDialog(self)
@@ -1009,9 +1705,10 @@ class MainWindow(QMainWindow):
         action = dialog.build_action()
         if not action.get("type"):
             return
-        item = QListWidgetItem(self._action_display(action))
-        item.setData(Qt.ItemDataRole.UserRole, action)
-        self.action_list.addItem(item)
+        actions = self._current_action_list()
+        actions.append(action)
+        self._rebuild_action_list(actions)
+        self.action_list.setCurrentRow(len(actions) - 1)
 
     def _edit_action_item(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.ItemDataRole.UserRole)
@@ -1021,31 +1718,49 @@ class MainWindow(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         action = dialog.build_action()
-        item.setText(self._action_display(action))
-        item.setData(Qt.ItemDataRole.UserRole, action)
+        index = self.action_list.row(item)
+        actions = self._current_action_list()
+        if 0 <= index < len(actions):
+            actions[index] = action
+        self._rebuild_action_list(actions)
+        self.action_list.setCurrentRow(index)
 
     def _remove_selected_action(self) -> None:
         row = self.action_list.currentRow()
         if row < 0:
             return
-        self.action_list.takeItem(row)
+        self._delete_action_row(row)
 
     def _move_action(self, delta: int) -> None:
         row = self.action_list.currentRow()
         if row < 0:
             return
-        target = row + delta
-        if target < 0 or target >= self.action_list.count():
+        self._move_action_row(row, delta)
+
+    def _move_action_row(self, index: int, delta: int) -> None:
+        actions = self._current_action_list()
+        target = index + delta
+        if not (0 <= target < len(actions)):
             return
-        item = self.action_list.takeItem(row)
-        self.action_list.insertItem(target, item)
+        moved = actions.pop(index)
+        actions.insert(target, moved)
+        self._rebuild_action_list(actions)
         self.action_list.setCurrentRow(target)
+
+    def _delete_action_row(self, index: int) -> None:
+        actions = self._current_action_list()
+        if not (0 <= index < len(actions)):
+            return
+        actions.pop(index)
+        self._rebuild_action_list(actions)
+        if actions:
+            self.action_list.setCurrentRow(min(index, len(actions) - 1))
 
     def _test_selected_rule(self) -> None:
         """▶ 立即测试：忽略触发条件与冷却，按当前表单/列表动作串试跑。"""
         rule_id = self._selected_rule_id()
         rule = self._find_rule(rule_id)
-        actions = self._read_actions(rule.get("actions", []) if rule else None)
+        actions = self._read_actions(rule if rule else None)
         if not actions:
             QMessageBox.information(self, "小马联动", "请先添加至少一个动作")
             return
@@ -1087,25 +1802,25 @@ class MainWindow(QMainWindow):
             return False
         return self._confirmation_bridge.confirm(action)
 
-    def _table_item_changed(self, item: QTableWidgetItem) -> None:
-        if self._updating_table or item.column() != 0:
+    def _rule_enabled_toggled(self, rule_id: str, checked: bool) -> None:
+        rule = self._find_rule(rule_id)
+        if rule is None:
             return
-        rule = self._find_rule(item.data(Qt.ItemDataRole.UserRole))
-        if rule is not None:
-            # Replace, don't mutate (pre-check item 6): the monitor
-            # thread may be evaluating this very dict while the GUI
-            # edits it. A fresh dict is swapped into the list and the
-            # by-id index together.
-            new_rule = dict(rule)
-            new_rule["enabled"] = item.checkState() == Qt.CheckState.Checked
-            rules = self.config_manager.get_rules()
-            for index, existing in enumerate(rules):
-                if existing is rule or existing.get("id") == rule.get("id"):
-                    rules[index] = new_rule
-                    break
-            self._rules_by_id[str(new_rule.get("id"))] = new_rule
-            self.config_manager.set_rules(rules)
-            self._save_rules()
+        # Replace, don't mutate (pre-check item 6): the monitor
+        # thread may be evaluating this very dict while the GUI
+        # edits it. A fresh dict is swapped into the list and the
+        # by-id index together.
+        new_rule = dict(rule)
+        new_rule["enabled"] = bool(checked)
+        rules = self.config_manager.get_rules()
+        for index, existing in enumerate(rules):
+            if existing is rule or existing.get("id") == rule.get("id"):
+                rules[index] = new_rule
+                break
+        self._rules_by_id[str(new_rule.get("id"))] = new_rule
+        self.config_manager.set_rules(rules)
+        self._save_rules()
+        self._update_rule_count(rules)
 
     # -- rule editing -----------------------------------------------------
 
@@ -1142,7 +1857,8 @@ class MainWindow(QMainWindow):
         if event_type == EVENT_PROGRAM_START:
             when["program"] = program
 
-        action_type = LABEL_TO_ACTION[self.action_combo.currentText()]
+        actions = self._read_actions()
+        action_type = actions[0].get("type") if actions else ACTION_KILL_PROCESS
         return {
             "when": when,
             "action_type": action_type,
@@ -1219,7 +1935,10 @@ class MainWindow(QMainWindow):
         )
 
     def _describe(self, form: Dict[str, Any]) -> str:
-        action_text = ACTION_LABELS[form["action_type"]]
+        action_type = form["action_type"]
+        action_text = ACTION_LABELS.get(
+            action_type, _ACTION_TYPE_LABELS.get(action_type, str(action_type))
+        )
         source = ", ".join(form["sources"])
         target = ", ".join(form["targets"])
         if form["event_type"] == EVENT_PROGRAM_START:
@@ -1262,8 +1981,8 @@ class MainWindow(QMainWindow):
         if event == EVENT_PROGRAM_START:
             restore = "（退出后恢复原状）" if restore_on_exit else ""
             return f"当打开 [{when.get('program', '')}] 时{action_text}{restore}"
-        source = ", ".join(_ssids_of(when.get("previous_ssid")))
-        target = ", ".join(_ssids_of(when.get("current_ssid")))
+        source = ", ".join("任意网络" if s == "*" else s for s in _ssids_of(when.get("previous_ssid")))
+        target = ", ".join("任意网络" if s == "*" else s for s in _ssids_of(when.get("current_ssid")))
         if event == EVENT_SWITCH:
             return f"从 {source} 切换到 {target} 时{action_text}"
         if event == EVENT_DISCONNECT:
@@ -1298,7 +2017,7 @@ class MainWindow(QMainWindow):
         rules.append(rule)
         self.config_manager.set_rules(rules)
         self._save_rules()
-        self._refresh_table()
+        self._refresh_rule_list()
         self._select_last_row()
 
     def _update_selected_rule(self) -> None:
@@ -1311,7 +2030,10 @@ class MainWindow(QMainWindow):
         if form is None:
             return
 
-        actions = self._read_actions(rule.get("actions", []))
+        actions = self._read_actions(rule)
+        if not actions:
+            QMessageBox.warning(self, "小马联动", "请至少添加一个动作再保存")
+            return
         signature = self._signature(form["when"], actions)
         for other in self.config_manager.get_rules():
             if other is not rule and self._rule_signature(other) == signature:
@@ -1340,7 +2062,9 @@ class MainWindow(QMainWindow):
         self._rules_by_id[str(new_rule.get("id"))] = new_rule
         self.config_manager.set_rules(rules)
         self._save_rules()
-        self._refresh_table()
+        # 保存后重建列表并重选原规则：编辑器显示与保存内容一致，
+        # 连续保存两次也不会因为“无选中”而多出一条规则。
+        self._refresh_rule_list(select_rule_id=str(new_rule.get("id")))
 
     def _delete_selected_rule(self) -> None:
         rule_id = self._selected_rule_id()
@@ -1349,7 +2073,7 @@ class MainWindow(QMainWindow):
         rules = [rule for rule in self.config_manager.get_rules() if rule.get("id") != rule_id]
         self.config_manager.set_rules(rules)
         self._save_rules()
-        self._refresh_table()
+        self._refresh_rule_list()
 
     def _save_rules(self) -> None:
         try:
@@ -1364,9 +2088,9 @@ class MainWindow(QMainWindow):
                 logger.debug("规则变更回调失败", exc_info=True)
 
     def _select_last_row(self) -> None:
-        row = self.table.rowCount() - 1
+        row = self.rule_list.count() - 1
         if row >= 0:
-            self.table.selectRow(row)
+            self.rule_list.setCurrentRow(row)
 
     def _make_rule_id(self, form: Dict[str, Any], existing: List[Dict[str, Any]]) -> str:
         def safe(text: str) -> str:
@@ -1397,12 +2121,6 @@ class MainWindow(QMainWindow):
         return candidate
 
     # -- helpers ----------------------------------------------------------
-
-    @staticmethod
-    def _first_action_type(value: Any) -> str:
-        if isinstance(value, list) and value:
-            return str(value[0].get("type", ""))
-        return ""
 
     @staticmethod
     def create_icon() -> QIcon:

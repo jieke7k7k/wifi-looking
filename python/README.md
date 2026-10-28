@@ -29,7 +29,7 @@ pip install -r requirements-windows.txt
 python build.py
 ```
 
-产出 `dist/XiaoMaLink.exe`，装有 Inno Setup 6 时同时产出安装器 `dist/XiaoMaLink_Setup_v1.0.0.exe`。
+产出 `dist/XiaoMaLink.exe`，装有 Inno Setup 6 时同时产出安装器 `dist/XiaoMaLink_Setup_v1.1.0.exe`。
 
 ## 测试
 
